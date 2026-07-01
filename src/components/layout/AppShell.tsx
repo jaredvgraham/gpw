@@ -15,30 +15,42 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <JobModalProvider>
-      <div className="flex min-h-screen bg-brand-gray">
+      <div className="flex min-h-screen bg-brand-gray max-md:h-dvh max-md:overflow-hidden">
         <Sidebar currentPath={pathname} />
-        <main className="flex-1 overflow-auto">
-          {!isCalendar && (
-            <div className="md:hidden">
-              <MobileHeader onMenuOpen={() => setMenuOpen(true)} />
-              <MobileMenu
-                open={menuOpen}
-                onClose={() => setMenuOpen(false)}
-                currentPath={pathname}
-              />
-            </div>
-          )}
-          <div
-            className={
-              isCalendar
-                ? "p-0 md:p-4 h-dvh md:h-screen pb-[4.5rem] md:pb-4 overflow-hidden md:overflow-auto"
-                : "p-4 md:p-8 pt-0 md:pt-8 pb-24 md:pb-8"
-            }
+        <div className="flex flex-1 flex-col min-h-0 min-w-0 max-md:overflow-hidden">
+          <main
+            className={`flex-1 flex flex-col min-h-0 min-w-0 ${
+              isCalendar ? "max-md:overflow-hidden" : "overflow-auto"
+            }`}
           >
-            <div className={isCalendar ? "h-full md:p-0" : ""}>{children}</div>
-          </div>
-        </main>
-        <MobileNav />
+            {!isCalendar && (
+              <div className="md:hidden shrink-0">
+                <MobileHeader onMenuOpen={() => setMenuOpen(true)} />
+                <MobileMenu
+                  open={menuOpen}
+                  onClose={() => setMenuOpen(false)}
+                  currentPath={pathname}
+                />
+              </div>
+            )}
+            <div
+              className={
+                isCalendar
+                  ? "flex-1 flex flex-col min-h-0 overflow-hidden p-0 md:p-4 md:overflow-auto"
+                  : "p-4 md:p-8 pt-0 md:pt-8 pb-4 md:pb-8"
+              }
+            >
+              <div
+                className={
+                  isCalendar ? "flex-1 flex flex-col min-h-0 overflow-hidden" : ""
+                }
+              >
+                {children}
+              </div>
+            </div>
+          </main>
+          <MobileNav />
+        </div>
       </div>
     </JobModalProvider>
   );

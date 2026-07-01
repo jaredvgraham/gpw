@@ -183,7 +183,7 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
     panelHeight >= (PANEL_COLLAPSED_HEIGHT + expandedPanelHeight) / 2;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-brand-gray -m-3">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-brand-gray">
       <MobileHeader onMenuOpen={() => setMenuOpen(true)} />
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} currentPath={pathname} />
 

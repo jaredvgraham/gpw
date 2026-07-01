@@ -8,7 +8,7 @@ import { useJobModals } from "@/contexts/JobModalContext";
 const tabs = [
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
-  { href: "__new__", label: "New Job", icon: Plus, primary: true },
+  { href: "__new__", label: "New Job", icon: Plus, action: "new" as const },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/dashboard", label: "Reports", icon: BarChart3 },
 ];
@@ -18,21 +18,19 @@ export default function MobileNav() {
   const { openNewJob } = useJobModals();
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-white border-t border-brand-border safe-area-bottom">
+    <nav className="shrink-0 z-40 md:hidden bg-white border-t border-brand-border safe-area-bottom">
       <div className="flex items-stretch justify-around px-1 pt-1 pb-2">
-        {tabs.map(({ href, label, icon: Icon, primary }) => {
-          if (primary) {
+        {tabs.map(({ href, label, icon: Icon, action }) => {
+          if (action === "new") {
             return (
               <button
                 key={href}
                 type="button"
                 onClick={() => openNewJob()}
-                className="flex flex-col items-center justify-center -mt-5"
+                className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 min-h-[52px] rounded-lg transition-colors text-gray-500"
               >
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-red text-white shadow-lg shadow-red-200">
-                  <Icon className="h-6 w-6" />
-                </span>
-                <span className="mt-1 text-[10px] font-semibold text-brand-red">{label}</span>
+                <Icon className="h-5 w-5" />
+                <span className="text-[10px] font-medium">{label}</span>
               </button>
             );
           }
