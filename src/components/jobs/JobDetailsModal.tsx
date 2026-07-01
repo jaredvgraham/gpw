@@ -16,7 +16,7 @@ import {
 } from "@/lib/utils";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import type { Customer } from "@/types";
-import { useJobModals } from "@/contexts/JobModalContext";
+import { notifyJobSaved, useJobModals } from "@/contexts/JobModalContext";
 
 interface JobDetailsModalProps {
   job: Job | null;
@@ -77,6 +77,7 @@ export default function JobDetailsModal({
         body: JSON.stringify(buildPatchBody(overrides)),
       });
       if (overrides.paid !== undefined) setPaid(overrides.paid);
+      notifyJobSaved();
       onUpdated?.();
       if (closeAfter) onClose();
     } finally {
@@ -97,6 +98,7 @@ export default function JobDetailsModal({
     setLoading(true);
     try {
       await fetch(`/api/jobs/${job!._id}`, { method: "DELETE" });
+      notifyJobSaved();
       onUpdated?.();
       onClose();
     } finally {

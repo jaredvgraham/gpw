@@ -32,6 +32,7 @@ import MobileDaySheet from "@/components/calendar/MobileDaySheet";
 import MobileCalendarView from "@/components/calendar/mobile/MobileCalendarView";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useJobModals } from "@/contexts/JobModalContext";
+import { useAppData } from "@/contexts/AppDataContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
@@ -100,10 +101,9 @@ function abbreviateMultiMonthTitles(container: Element | null) {
 export default function JobCalendar() {
   const isMobile = useIsMobile();
   const { openNewJob } = useJobModals();
+  const { jobs, jobsLoading: loading } = useAppData();
   const calendarRef = useRef<FullCalendar>(null);
   const calendarContainerRef = useRef<HTMLDivElement>(null);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentTitle, setCurrentTitle] = useState("");
@@ -190,31 +190,11 @@ export default function JobCalendar() {
     });
   }, [isMobile]);
 
-  const fetchJobs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/jobs");
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setJobs(data);
-        setSelectedJob((current) =>
-          current ? data.find((j: Job) => j._id === current._id) ?? current : null
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
-
-  useEffect(() => {
-    const handler = () => fetchJobs();
-    window.addEventListener("gpw:job-saved", handler);
-    return () => window.removeEventListener("gpw:job-saved", handler);
-  }, [fetchJobs]);
+    setSelectedJob((current) =>
+      current ? jobs.find((job) => job._id === current._id) ?? current : null
+    );
+  }, [jobs]);
 
   useEffect(() => {
     if (currentView !== "dayGridMonth") return;
@@ -413,7 +393,7 @@ export default function JobCalendar() {
 
   if (isMobile) {
     return (
-      <MobileCalendarView jobs={jobs} loading={loading} onRefresh={fetchJobs} />
+      <MobileCalendarView jobs={jobs} loading={loading} />
     );
   }
 
@@ -531,7 +511,7 @@ export default function JobCalendar() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {loading && (
+        {loading && jobs.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
             <LoadingSpinner />
           </div>
@@ -617,7 +597,11 @@ export default function JobCalendar() {
         job={selectedJob}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onUpdated={fetchJobs}
+        onUpdated={() => {
+          setSelectedJob((current) =>
+            current ? jobs.find((job) => job._id === current._id) ?? null : null
+          );
+        }}
       />
 
       <MobileDaySheet

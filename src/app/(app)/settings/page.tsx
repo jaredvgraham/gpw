@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import PageHeader from "@/components/ui/PageHeader";
@@ -13,10 +13,10 @@ import { serviceSchema } from "@/lib/validations";
 import type { z } from "zod";
 import type { Service } from "@/types";
 import { formatCurrency } from "@/lib/utils";
+import { useAppData } from "@/contexts/AppDataContext";
 
 export default function SettingsPage() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { services, servicesLoading, refreshServices } = useAppData();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
@@ -29,17 +29,6 @@ export default function SettingsPage() {
     resolver: zodResolver(serviceSchema),
     defaultValues: { name: "", description: "", basePrice: undefined, active: true },
   });
-
-  async function fetchServices() {
-    setLoading(true);
-    const res = await fetch("/api/services");
-    setServices(await res.json());
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    fetchServices();
-  }, []);
 
   async function onSubmit(data: z.infer<typeof serviceSchema>) {
     const url = editingId ? `/api/services/${editingId}` : "/api/services";
@@ -54,7 +43,7 @@ export default function SettingsPage() {
     reset();
     setEditingId(null);
     setShowForm(false);
-    fetchServices();
+    await refreshServices();
   }
 
   function startEdit(service: Service) {
@@ -71,10 +60,10 @@ export default function SettingsPage() {
   async function deleteService(id: string) {
     if (!confirm("Delete this service?")) return;
     await fetch(`/api/services/${id}`, { method: "DELETE" });
-    fetchServices();
+    await refreshServices(true);
   }
 
-  if (loading) return <LoadingSpinner />;
+  if (servicesLoading && services.length === 0) return <LoadingSpinner />;
 
   return (
     <div>

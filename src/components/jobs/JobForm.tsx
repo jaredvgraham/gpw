@@ -2,7 +2,7 @@
 
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "@/components/ui/Input";
 import Textarea from "@/components/ui/Textarea";
@@ -16,6 +16,8 @@ import type { z } from "zod";
 import { JOB_STATUSES, type JobStatus } from "@/lib/constants";
 import type { Job, Service, Customer } from "@/types";
 import { getJobDuration } from "@/lib/utils";
+import { sortServicesForDisplay } from "@/lib/services";
+import { useAppData } from "@/contexts/AppDataContext";
 import { Calendar, User, MapPin, Wrench, DollarSign, FileText } from "lucide-react";
 
 interface JobFormProps {
@@ -57,8 +59,12 @@ export default function JobForm({
   onCancel,
 }: JobFormProps) {
   const router = useRouter();
-  const [services, setServices] = useState<Service[]>([]);
-  const [dayJobs, setDayJobs] = useState<Job[]>([]);
+  const { jobs, services } = useAppData();
+  const isEditing = !!job;
+  const orderedServices = useMemo(
+    () => sortServicesForDisplay(services.filter((service) => service.active)),
+    [services]
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [scheduleConflict, setScheduleConflict] = useState<string | null>(null);
@@ -103,7 +109,6 @@ export default function JobForm({
       finalPrice: job?.finalPrice,
       paid: job?.paid ?? false,
       internalNotes: job?.internalNotes ?? "",
-      photoNotes: job?.photoNotes ?? "",
     },
   });
 
@@ -114,23 +119,10 @@ export default function JobForm({
   const selectedServices = watch("services");
   const isPaid = watch("paid");
 
-  useEffect(() => {
-    fetch("/api/services")
-      .then((r) => r.json())
-      .then(setServices);
-  }, []);
-
-  useEffect(() => {
-    if (!jobDate) {
-      setDayJobs([]);
-      return;
-    }
-
-    fetch(`/api/jobs?startDate=${jobDate}&endDate=${jobDate}`)
-      .then((r) => r.json())
-      .then((data) => setDayJobs(Array.isArray(data) ? data : []))
-      .catch(() => setDayJobs([]));
-  }, [jobDate]);
+  const dayJobs = useMemo(() => {
+    if (!jobDate) return [];
+    return jobs.filter((existing) => getJobDateOnly(existing.jobDate) === jobDate);
+  }, [jobs, jobDate]);
 
   useEffect(() => {
     if (!jobDate || !startTime || !endTime) {
@@ -290,14 +282,16 @@ export default function JobForm({
               <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-brand-blue">
                 {startTime && endTime ? getJobDuration(startTime, endTime) : "Set times above"}
               </span>
-              <div className="flex-1 min-w-[140px] max-w-xs">
-                <Select
-                  label="Status"
-                  options={JOB_STATUSES.map((s) => ({ value: s, label: s }))}
-                  value={watch("status")}
-                  onChange={(e) => setValue("status", e.target.value as JobStatus)}
-                />
-              </div>
+              {isEditing && (
+                <div className="flex-1 min-w-[140px] max-w-xs">
+                  <Select
+                    label="Status"
+                    options={JOB_STATUSES.map((s) => ({ value: s, label: s }))}
+                    value={watch("status")}
+                    onChange={(e) => setValue("status", e.target.value as JobStatus)}
+                  />
+                </div>
+              )}
             </div>
           </section>
 
@@ -341,14 +335,18 @@ export default function JobForm({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 label="Street address"
+                required
                 placeholder="123 Main St"
                 className="sm:col-span-2"
                 {...register("customer.streetAddress")}
+                error={errors.customer?.streetAddress?.message}
               />
               <Input
                 label="Town / city"
+                required
                 placeholder="Springfield"
                 {...register("customer.city")}
+                error={errors.customer?.city?.message}
               />
             </div>
           </section>
@@ -358,9 +356,9 @@ export default function JobForm({
           {/* Services */}
           <section>
             <SectionLabel icon={Wrench}>Services</SectionLabel>
-            <p className="text-sm text-gray-500 -mt-2 mb-3">Tap to select one or more.</p>
+            <p className="text-sm text-gray-500 -mt-2 mb-3">Select at least one service.</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {services.map((service) => {
+              {orderedServices.map((service) => {
                 const selected = selectedServices?.some((s) => s.name === service.name);
                 return (
                   <button
@@ -386,6 +384,7 @@ export default function JobForm({
                 <div key={`other-${index}`} className="mt-3">
                   <Input
                     label="Custom service"
+                    required
                     {...register(`services.${index}.customServiceName`)}
                     placeholder="Describe the service"
                   />
@@ -399,35 +398,38 @@ export default function JobForm({
           {/* Pricing */}
           <section>
             <SectionLabel icon={DollarSign}>Pricing</SectionLabel>
-            <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-              <div className="flex-1">
+            <div className={isEditing ? "flex flex-col sm:flex-row sm:items-end gap-4" : ""}>
+              <div className={isEditing ? "flex-1" : ""}>
                 <Input
                   label="Final price"
                   type="number"
                   min="0"
                   step="0.01"
+                  required
                   placeholder="0.00"
                   {...register("finalPrice")}
                   error={errors.finalPrice?.message}
                 />
               </div>
-              <label
-                className={`flex items-center justify-center gap-3 cursor-pointer rounded-xl border-2 px-5 py-3 min-h-[46px] transition-colors ${
-                  isPaid
-                    ? "border-green-500 bg-green-50 text-green-700"
-                    : "border-brand-border bg-white text-gray-600"
-                }`}
-              >
-                <input type="checkbox" {...register("paid")} className="sr-only" />
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded border-2 ${
-                    isPaid ? "border-green-500 bg-green-500 text-white" : "border-gray-300"
+              {isEditing && (
+                <label
+                  className={`flex items-center justify-center gap-3 cursor-pointer rounded-xl border-2 px-5 py-3 min-h-[46px] transition-colors ${
+                    isPaid
+                      ? "border-green-500 bg-green-50 text-green-700"
+                      : "border-brand-border bg-white text-gray-600"
                   }`}
                 >
-                  {isPaid && "✓"}
-                </span>
-                <span className="text-sm font-semibold">Paid in full</span>
-              </label>
+                  <input type="checkbox" {...register("paid")} className="sr-only" />
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded border-2 ${
+                      isPaid ? "border-green-500 bg-green-500 text-white" : "border-gray-300"
+                    }`}
+                  >
+                    {isPaid && "✓"}
+                  </span>
+                  <span className="text-sm font-semibold">Paid in full</span>
+                </label>
+              )}
             </div>
           </section>
 
@@ -436,20 +438,12 @@ export default function JobForm({
           {/* Notes */}
           <section>
             <SectionLabel icon={FileText}>Notes <span className="font-normal text-gray-400">(optional)</span></SectionLabel>
-            <div className="space-y-3">
-              <Textarea
-                label="Internal notes"
-                placeholder="Crew reminders, equipment needed..."
-                rows={2}
-                {...register("internalNotes")}
-              />
-              <Textarea
-                label="Photo notes"
-                placeholder="Before/after photo reminders..."
-                rows={2}
-                {...register("photoNotes")}
-              />
-            </div>
+            <Textarea
+              label="Internal notes"
+              placeholder="Crew reminders, equipment needed..."
+              rows={2}
+              {...register("internalNotes")}
+            />
           </section>
         </div>
 

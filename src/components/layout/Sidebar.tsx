@@ -10,6 +10,7 @@ import {
   Droplets,
 } from "lucide-react";
 import { useJobModals } from "@/contexts/JobModalContext";
+import DataSyncIndicator from "./DataSyncIndicator";
 
 const navItems = [
   { href: "/calendar", label: "Calendar", icon: Calendar },
@@ -51,6 +52,10 @@ export default function Sidebar({ currentPath }: { currentPath: string }) {
           );
         })}
       </nav>
+
+      <div className="px-3 pb-2">
+        <DataSyncIndicator className="rounded-lg border border-brand-border" />
+      </div>
 
       <div className="px-4 py-4 border-t border-brand-border">
         <button

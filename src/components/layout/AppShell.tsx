@@ -7,7 +7,9 @@ import MobileHeader from "./MobileHeader";
 import MobileMenu from "./MobileMenu";
 import MobilePageFooter from "./MobilePageFooter";
 import MobileBottomNav from "./MobileBottomNav";
+import DataSyncIndicator from "./DataSyncIndicator";
 import { JobModalProvider } from "@/contexts/JobModalContext";
+import { AppDataProvider } from "@/contexts/AppDataContext";
 
 const BOTTOM_NAV_PATHS = ["/today", "/jobs", "/customers", "/dashboard"];
 
@@ -21,7 +23,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <JobModalProvider>
+    <AppDataProvider>
+      <JobModalProvider>
       <div className="flex min-h-screen bg-brand-gray max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden">
         <Sidebar currentPath={pathname} />
         <div className="flex flex-1 flex-col min-h-0 min-w-0 max-md:overflow-hidden">
@@ -40,6 +43,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   onMenuOpen={() => setMenuOpen(true)}
                   variant={isToday ? "itinerary" : "default"}
                 />
+                <DataSyncIndicator />
                 <MobileMenu
                   open={menuOpen}
                   onClose={() => setMenuOpen(false)}
@@ -56,6 +60,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     : "p-4 md:p-8 pt-0 md:pt-8 pb-4 md:pb-8"
               }
             >
+              {!isCalendar && (
+                <div className="hidden md:block mb-4 -mt-2">
+                  <DataSyncIndicator className="rounded-lg border border-brand-border" />
+                </div>
+              )}
               <div
                 className={
                   isCalendar ? "flex-1 flex flex-col min-h-0 overflow-hidden" : ""
@@ -72,6 +81,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {showBottomNav && <MobileBottomNav />}
         </div>
       </div>
-    </JobModalProvider>
+      </JobModalProvider>
+    </AppDataProvider>
   );
 }

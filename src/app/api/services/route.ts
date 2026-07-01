@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { apiError, apiSuccess } from "@/lib/api";
+import { sortServicesForDisplay } from "@/lib/services";
 import Service from "@/models/Service";
 import { serviceSchema } from "@/lib/validations";
 import { seedDefaultServices } from "@/lib/seed-services";
@@ -10,7 +11,7 @@ export async function GET() {
     await connectDB();
     await seedDefaultServices();
 
-    const services = await Service.find().sort({ name: 1 });
+    const services = sortServicesForDisplay(await Service.find());
     return apiSuccess(services);
   } catch (error) {
     console.error("GET /api/services error:", error);

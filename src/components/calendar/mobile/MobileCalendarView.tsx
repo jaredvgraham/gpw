@@ -43,6 +43,7 @@ import {
   getJobAddress,
 } from "@/lib/utils";
 import MobileHeader from "@/components/layout/MobileHeader";
+import DataSyncIndicator from "@/components/layout/DataSyncIndicator";
 import MobileMenu from "@/components/layout/MobileMenu";
 import JobDetailsModal from "@/components/jobs/JobDetailsModal";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -75,10 +76,9 @@ const PACKED_DAY_JOB_COUNT = 3;
 interface MobileCalendarViewProps {
   jobs: Job[];
   loading: boolean;
-  onRefresh: () => void;
 }
 
-export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileCalendarViewProps) {
+export default function MobileCalendarView({ jobs, loading }: MobileCalendarViewProps) {
   const pathname = usePathname();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -108,7 +108,6 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
 
   useEffect(() => {
     const handler = () => {
-      onRefresh();
       requestAnimationFrame(() => {
         window.scrollTo(0, 0);
         document.documentElement.scrollTop = 0;
@@ -117,7 +116,7 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
     };
     window.addEventListener("gpw:job-saved", handler);
     return () => window.removeEventListener("gpw:job-saved", handler);
-  }, [onRefresh]);
+  }, []);
 
   useEffect(() => {
     jobListRef.current?.scrollTo({ top: 0 });
@@ -210,6 +209,7 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-brand-gray">
       <MobileHeader onMenuOpen={() => setMenuOpen(true)} />
+      <DataSyncIndicator />
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} currentPath={pathname} />
 
       <div className="sticky top-0 z-20 shrink-0 border-b border-brand-border bg-white px-3 py-3">
@@ -248,7 +248,7 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 bg-white relative">
-        {loading && (
+        {loading && jobs.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
             <LoadingSpinner />
           </div>
@@ -513,7 +513,11 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
         job={selectedJob}
         open={jobModalOpen}
         onClose={() => setJobModalOpen(false)}
-        onUpdated={onRefresh}
+        onUpdated={() => {
+          setSelectedJob((current) =>
+            current ? jobs.find((job) => job._id === current._id) ?? null : null
+          );
+        }}
       />
     </div>
   );

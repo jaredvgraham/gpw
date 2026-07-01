@@ -1,62 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import JobCard from "@/components/jobs/JobCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import type { DashboardStats } from "@/types";
 import { formatCurrency } from "@/lib/utils";
+import { computeDashboardStats } from "@/lib/dashboard-stats";
 import { Calendar, CheckCircle, DollarSign, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useJobModals } from "@/contexts/JobModalContext";
+import { useAppData } from "@/contexts/AppDataContext";
 
 export default function DashboardPage() {
   const { openNewJob } = useJobModals();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { jobs, jobsLoading } = useAppData();
+  const stats = useMemo(() => computeDashboardStats(jobs), [jobs]);
 
-  useEffect(() => {
-    fetch("/api/dashboard")
-      .then((r) => r.json())
-      .then(setStats)
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <LoadingSpinner />;
+  if (jobsLoading && jobs.length === 0) return <LoadingSpinner />;
 
   const statCards = [
     {
       label: "Today's Jobs",
-      value: stats?.todayJobs.length ?? 0,
+      value: stats.todayJobs.length,
       icon: Calendar,
       color: "text-brand-blue",
       bg: "bg-blue-50",
     },
     {
       label: "Tomorrow's Jobs",
-      value: stats?.tomorrowJobs.length ?? 0,
+      value: stats.tomorrowJobs.length,
       icon: Calendar,
       color: "text-brand-blue",
       bg: "bg-blue-50",
     },
     {
       label: "Completed This Month",
-      value: stats?.completedThisMonth ?? 0,
+      value: stats.completedThisMonth,
       icon: CheckCircle,
       color: "text-green-600",
       bg: "bg-green-50",
     },
     {
       label: "Est. Revenue This Week",
-      value: formatCurrency(stats?.estimatedRevenueWeek),
+      value: formatCurrency(stats.estimatedRevenueWeek),
       icon: DollarSign,
       color: "text-brand-red",
       bg: "bg-red-50",
     },
     {
       label: "Est. Revenue This Month",
-      value: formatCurrency(stats?.estimatedRevenueMonth),
+      value: formatCurrency(stats.estimatedRevenueMonth),
       icon: TrendingUp,
       color: "text-brand-red",
       bg: "bg-red-50",
@@ -105,11 +99,11 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card title="Today's Jobs">
-          {stats?.todayJobs.length === 0 ? (
+          {stats.todayJobs.length === 0 ? (
             <p className="text-sm text-gray-500 py-4 text-center">No jobs scheduled for today.</p>
           ) : (
             <div className="space-y-3">
-              {stats?.todayJobs.map((job) => (
+              {stats.todayJobs.map((job) => (
                 <JobCard key={job._id} job={job} />
               ))}
             </div>
@@ -117,11 +111,11 @@ export default function DashboardPage() {
         </Card>
 
         <Card title="Tomorrow's Jobs">
-          {stats?.tomorrowJobs.length === 0 ? (
+          {stats.tomorrowJobs.length === 0 ? (
             <p className="text-sm text-gray-500 py-4 text-center">No jobs scheduled for tomorrow.</p>
           ) : (
             <div className="space-y-3">
-              {stats?.tomorrowJobs.map((job) => (
+              {stats.tomorrowJobs.map((job) => (
                 <JobCard key={job._id} job={job} />
               ))}
             </div>
@@ -129,11 +123,11 @@ export default function DashboardPage() {
         </Card>
 
         <Card title="Upcoming Jobs" className="lg:col-span-2">
-          {stats?.upcomingJobs.length === 0 ? (
+          {stats.upcomingJobs.length === 0 ? (
             <p className="text-sm text-gray-500 py-4 text-center">No upcoming jobs.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {stats?.upcomingJobs.map((job) => (
+              {stats.upcomingJobs.map((job) => (
                 <JobCard key={job._id} job={job} />
               ))}
             </div>

@@ -1,40 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useMemo } from "react";
 import { format } from "date-fns";
-import type { Job } from "@/types";
 import TodaySummaryStrip from "@/components/today/TodaySummaryStrip";
 import TodayJobCard from "@/components/today/TodayJobCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { getJobsForDate } from "@/lib/calendar-mobile";
+import { useAppData } from "@/contexts/AppDataContext";
 
 export default function TodayPage() {
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { jobs, jobsLoading } = useAppData();
 
-  const loadJobs = useCallback(() => {
-    setLoading(true);
-    fetch(`/api/jobs?startDate=${todayStr}&endDate=${todayStr}`)
-      .then((r) => r.json())
-      .then((data) => setJobs(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
-  }, [todayStr]);
-
-  useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
-
-  useEffect(() => {
-    function handleJobSaved() {
-      loadJobs();
-    }
-
-    window.addEventListener("gpw:job-saved", handleJobSaved);
-    return () => window.removeEventListener("gpw:job-saved", handleJobSaved);
-  }, [loadJobs]);
-
-  const todayJobs = getJobsForDate(jobs, todayStr);
+  const todayJobs = useMemo(() => getJobsForDate(jobs, todayStr), [jobs, todayStr]);
   const activeJobs = todayJobs.filter((job) => job.status !== "Cancelled");
   const cancelledJobs = todayJobs.filter((job) => job.status === "Cancelled");
 
@@ -47,10 +25,10 @@ export default function TodayPage() {
 
       <div className="pt-3 md:pt-0">
         <div className="mb-4">
-          <TodaySummaryStrip jobs={activeJobs} loading={loading} />
+          <TodaySummaryStrip jobs={activeJobs} loading={jobsLoading && jobs.length === 0} />
         </div>
 
-        {loading ? (
+        {jobsLoading && jobs.length === 0 ? (
           <LoadingSpinner />
         ) : activeJobs.length === 0 && cancelledJobs.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center">

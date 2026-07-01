@@ -9,6 +9,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 
 export const DEFAULT_SERVICES = [
   { name: "House wash", description: "Full exterior house washing" },
+  { name: "Window cleaning", description: "Window washing" },
   { name: "Roof wash", description: "Soft wash roof cleaning" },
   { name: "Front deck", description: "Front deck cleaning" },
   { name: "Back deck", description: "Back deck cleaning" },
@@ -16,6 +17,7 @@ export const DEFAULT_SERVICES = [
   { name: "Patio cleaning", description: "Patio pressure washing" },
   { name: "Walkway cleaning", description: "Walkway pressure washing" },
   { name: "Fence cleaning", description: "Fence pressure washing" },
+  { name: "Stone walls", description: "Stone wall pressure washing" },
   { name: "Gutter cleaning", description: "Gutter cleaning and flushing" },
   { name: "Other", description: "Custom service" },
 ] as const;

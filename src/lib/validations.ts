@@ -6,8 +6,8 @@ export const customerSchema = z.object({
   name: z.string().min(1, "Customer name is required"),
   phone: z.string().min(1, "Phone number is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
-  streetAddress: z.string().optional(),
-  city: z.string().optional(),
+  streetAddress: z.string().min(1, "Street address is required"),
+  city: z.string().min(1, "City is required"),
 });
 
 export const jobServiceSchema = z.object({
@@ -27,8 +27,12 @@ export const jobSchema = z
     status: z.enum(JOB_STATUSES).default("Scheduled"),
     services: z.array(jobServiceSchema).min(1, "At least one service is required"),
     finalPrice: z.preprocess(
-      (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
-      z.number().min(0, "Price cannot be negative").optional()
+      (val) => {
+        if (val === "" || val === undefined || val === null) return undefined;
+        const num = Number(val);
+        return Number.isNaN(num) ? undefined : num;
+      },
+      z.number({ message: "Price is required" }).min(0, "Price cannot be negative")
     ),
     paid: z.boolean().default(false),
     internalNotes: z.string().optional(),
@@ -41,7 +45,19 @@ export const jobSchema = z
   .refine((data) => data.customerId || data.customer, {
     message: "Customer is required",
     path: ["customer"],
-  });
+  })
+  .refine(
+    (data) =>
+      data.services.every(
+        (service) =>
+          service.name !== "Other" ||
+          (service.customServiceName && service.customServiceName.trim().length > 0)
+      ),
+    {
+      message: "Please describe the custom service",
+      path: ["services"],
+    }
+  );
 
 export const serviceSchema = z.object({
   name: z.string().min(1, "Service name is required"),

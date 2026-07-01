@@ -16,23 +16,27 @@ function addMinutesToTime(time: string, minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-export const SERVICE_PILL_STYLES: Record<string, { bg: string; text: string }> = {
-  "House wash": { bg: "#dbeafe", text: "#1d4ed8" },
-  "Roof wash": { bg: "#fee2e2", text: "#dc2626" },
-  "Front deck": { bg: "#ffedd5", text: "#c2410c" },
-  "Back deck": { bg: "#fed7aa", text: "#9a3412" },
-  "Driveway cleaning": { bg: "#dcfce7", text: "#15803d" },
-  "Patio cleaning": { bg: "#f3e8ff", text: "#7e22ce" },
-  "Walkway cleaning": { bg: "#e0e7ff", text: "#4338ca" },
-  "Fence cleaning": { bg: "#fef3c7", text: "#b45309" },
-  "Gutter cleaning": { bg: "#cffafe", text: "#0e7490" },
-  Other: { bg: "#f3f4f6", text: "#4b5563" },
-};
+export const SERVICE_PILL_STYLES: Record<string, { bg: string; text: string }> =
+  {
+    "House wash": { bg: "#dbeafe", text: "#1d4ed8" },
+    "Window cleaning": { bg: "#e0f2fe", text: "#0369a1" },
+    "Roof wash": { bg: "#fee2e2", text: "#dc2626" },
+    "Front deck": { bg: "#ffedd5", text: "#c2410c" },
+    "Back deck": { bg: "#fed7aa", text: "#9a3412" },
+    "Driveway cleaning": { bg: "#dcfce7", text: "#15803d" },
+    "Patio cleaning": { bg: "#f3e8ff", text: "#7e22ce" },
+    "Walkway cleaning": { bg: "#e0e7ff", text: "#4338ca" },
+    "Fence cleaning": { bg: "#fef3c7", text: "#b45309" },
+    "Stone walls": { bg: "#e7e5e4", text: "#57534e" },
+    "Gutter cleaning": { bg: "#cffafe", text: "#0e7490" },
+    Other: { bg: "#f3f4f6", text: "#4b5563" },
+  };
 
 const DEFAULT_PILL = { bg: "#f3f4f6", text: "#4b5563" };
 
 const SERVICE_PILL_SHORT_LABELS: Record<string, string> = {
   "House wash": "House Wash",
+  "Window cleaning": "Windows",
   "Roof wash": "Roof Wash",
   "Front deck": "Front Deck",
   "Back deck": "Back Deck",
@@ -40,13 +44,14 @@ const SERVICE_PILL_SHORT_LABELS: Record<string, string> = {
   "Patio cleaning": "Patio",
   "Walkway cleaning": "Walkway",
   "Fence cleaning": "Fence",
+  "Stone walls": "Stone Walls",
   "Gutter cleaning": "Gutters",
 };
 
 function normalizeServiceName(serviceName: string) {
   const trimmed = serviceName.trim();
   const match = Object.keys(SERVICE_PILL_STYLES).find(
-    (key) => key.toLowerCase() === trimmed.toLowerCase()
+    (key) => key.toLowerCase() === trimmed.toLowerCase(),
   );
   return match ?? trimmed;
 }
@@ -62,7 +67,8 @@ export function getServicePillStyle(serviceName: string) {
 }
 
 export function getServiceLabelForEntry(service: JobService): string {
-  if (service.name === "Other" && service.customServiceName) return service.customServiceName;
+  if (service.name === "Other" && service.customServiceName)
+    return service.customServiceName;
   return service.name;
 }
 
@@ -102,11 +108,13 @@ export function getNewJobTimePrefill(jobs: Job[], dateStr: string) {
 
   const latestEnd = dayJobs.reduce(
     (latest, job) => (job.endTime > latest ? job.endTime : latest),
-    dayJobs[0].endTime
+    dayJobs[0].endTime,
   );
-  const startTime = snapToTimeSlot(addMinutesToTime(latestEnd, NEW_JOB_GAP_MINUTES));
+  const startTime = snapToTimeSlot(
+    addMinutesToTime(latestEnd, NEW_JOB_GAP_MINUTES),
+  );
   const endTime = snapToTimeSlot(
-    addMinutesToTime(startTime, DEFAULT_NEW_JOB_DURATION_MINUTES)
+    addMinutesToTime(startTime, DEFAULT_NEW_JOB_DURATION_MINUTES),
   );
 
   return { startTime, endTime };
@@ -123,7 +131,10 @@ export function getJobDurationMinutes(startTime: string, endTime: string) {
 }
 
 export function getDayTotalMinutes(jobs: Job[]) {
-  return jobs.reduce((sum, job) => sum + getJobDurationMinutes(job.startTime, job.endTime), 0);
+  return jobs.reduce(
+    (sum, job) => sum + getJobDurationMinutes(job.startTime, job.endTime),
+    0,
+  );
 }
 
 export function formatCompactCurrency(amount: number) {
