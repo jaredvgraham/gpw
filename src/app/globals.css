@@ -406,6 +406,13 @@ body {
   min-height: calc(5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);
 }
 
+/* Exact inset for full-height pages (e.g. calendar) — no extra scroll buffer */
+@media (max-width: 767px) {
+  .calendar-bottom-nav-inset {
+    padding-bottom: calc(3.25rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
+  }
+}
+
 @media (max-width: 767px) {
   .main-with-bottom-nav {
     scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);

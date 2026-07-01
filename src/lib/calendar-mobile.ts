@@ -2,6 +2,7 @@ import type { Job, JobService } from "@/types";
 import { getJobDateOnly } from "@/lib/dates";
 import { snapToTimeSlot } from "@/lib/time";
 import { getCustomerName } from "@/lib/utils";
+import { getJobHouseholdTitle } from "@/lib/household-display";
 
 const DEFAULT_NEW_JOB_START = "08:00";
 const DEFAULT_NEW_JOB_END = "12:00";
@@ -79,7 +80,11 @@ export function getJobServiceEntries(job: Job) {
   }));
 }
 
-export function getJobCellLabel(job: Job): string {
+export function getJobCellLabel(job: Job, jobs?: Job[]): string {
+  if (jobs && jobs.length > 0) {
+    const title = getJobHouseholdTitle(job, jobs);
+    if (title) return title;
+  }
   const name = getCustomerName(job);
   if (name !== "Unknown Customer") return name;
   const primary = job.services[0];

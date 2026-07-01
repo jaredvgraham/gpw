@@ -11,7 +11,7 @@ import DataSyncIndicator from "./DataSyncIndicator";
 import { JobModalProvider } from "@/contexts/JobModalContext";
 import { AppDataProvider } from "@/contexts/AppDataContext";
 
-const BOTTOM_NAV_PATHS = ["/today", "/jobs", "/customers", "/dashboard"];
+const BOTTOM_NAV_PATHS = ["/calendar", "/today", "/jobs", "/customers", "/dashboard"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,7 +31,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <main
             className={`flex-1 flex flex-col min-h-0 min-w-0 ${
               isCalendar
-                ? "max-md:overflow-hidden"
+                ? showBottomNav
+                  ? "max-md:overflow-hidden calendar-bottom-nav-inset"
+                  : "max-md:overflow-hidden"
                 : showBottomNav
                   ? "overflow-auto main-with-bottom-nav"
                   : "overflow-auto"
@@ -72,7 +74,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               >
                 {children}
                 {!isCalendar && !showBottomNav && <MobilePageFooter />}
-                {showBottomNav && (
+                {showBottomNav && !isCalendar && (
                   <div className="md:hidden bottom-nav-clearance shrink-0" aria-hidden />
                 )}
               </div>

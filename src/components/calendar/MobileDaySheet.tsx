@@ -3,7 +3,8 @@
 import { format } from "date-fns";
 import { getJobDateOnly } from "@/lib/dates";
 import type { Job } from "@/types";
-import { formatTime, getCustomerName, getJobAddress } from "@/lib/utils";
+import { formatTime, getJobAddress } from "@/lib/utils";
+import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import { STATUS_COLORS } from "@/lib/constants";
 import { getNewJobTimePrefill } from "@/lib/calendar-mobile";
 import { X, Plus, MapPin, Clock } from "lucide-react";
@@ -67,7 +68,9 @@ export default function MobileDaySheet({
                   className="w-full text-left rounded-xl border border-brand-border p-4 active:bg-brand-gray transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-semibold text-brand-black">{getCustomerName(job)}</p>
+                    <div className="min-w-0 flex-1">
+                      <JobCustomerHeader job={job} compact showMembers={false} />
+                    </div>
                     <span
                       className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
                       style={{ backgroundColor: STATUS_COLORS[job.status] }}

@@ -39,7 +39,6 @@ import {
 import {
   formatCurrency,
   formatTime,
-  getCustomerName,
   getJobAddress,
 } from "@/lib/utils";
 import MobileHeader from "@/components/layout/MobileHeader";
@@ -48,6 +47,7 @@ import MobileMenu from "@/components/layout/MobileMenu";
 import JobDetailsModal from "@/components/jobs/JobDetailsModal";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import ServicePill from "@/components/calendar/ServicePill";
+import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { usePathname } from "next/navigation";
 
@@ -207,7 +207,7 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
   const isCurrentMonth = isSameMonth(month, new Date());
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-brand-gray">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-brand-gray">
       <MobileHeader onMenuOpen={() => setMenuOpen(true)} />
       <DataSyncIndicator />
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} currentPath={pathname} />
@@ -323,7 +323,7 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
                     <div
                       key={job._id}
                       className="flex items-center gap-0.5 min-w-0"
-                      title={getJobCellLabel(job)}
+                      title={getJobCellLabel(job, jobs)}
                     >
                       <span
                         className="h-1.5 w-1.5 rounded-full shrink-0"
@@ -334,7 +334,7 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
                           selected ? "text-white" : "text-brand-black"
                         }`}
                       >
-                        {getJobCellLabel(job)}
+                        {getJobCellLabel(job, jobs)}
                       </span>
                     </div>
                   ))}
@@ -452,9 +452,7 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-brand-black truncate">
-                        {getCustomerName(job)}
-                      </p>
+                      <JobCustomerHeader job={job} compact showMembers={false} />
                       <div className="flex flex-wrap gap-1 mt-1">
                         {serviceEntries.length > 0 ? (
                           serviceEntries.map(({ label, serviceName }, index) => (
@@ -500,10 +498,7 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
               })
             )}
             {selectedDayJobs.length > 0 && (
-              <div
-                aria-hidden
-                className="w-full min-h-[6rem] shrink-0 rounded-xl border border-transparent pointer-events-none"
-              />
+              <div aria-hidden className="w-full shrink-0 pb-4 pointer-events-none" />
             )}
           </div>
         </div>

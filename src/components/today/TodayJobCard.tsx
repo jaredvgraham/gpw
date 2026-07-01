@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { Customer, Job } from "@/types";
 import ServicePill from "@/components/calendar/ServicePill";
+import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import { getJobServiceEntries } from "@/lib/calendar-mobile";
 import { getJobDateOnly } from "@/lib/dates";
 import { getItineraryStatus } from "@/lib/today-itinerary";
@@ -21,7 +22,6 @@ import {
   formatCurrency,
   formatTime,
   getCustomerAddress,
-  getCustomerName,
   getJobAddress,
 } from "@/lib/utils";
 
@@ -149,9 +149,9 @@ export default function TodayJobCard({
         </p>
 
         <div className="mt-1.5 flex items-start justify-between gap-2">
-          <h3 className="min-w-0 flex-1 text-[15px] font-bold leading-snug text-gray-900">
-            {getCustomerName(job)}
-          </h3>
+          <div className="min-w-0 flex-1">
+            <JobCustomerHeader job={job} compact showMembers={false} />
+          </div>
           <span
             className="shrink-0 rounded-full px-2 py-0.5 text-[8.5px] font-bold tracking-wider text-white"
             style={{ backgroundColor: status.color }}

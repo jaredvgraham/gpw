@@ -1,15 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import Input from "@/components/ui/Input";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import HouseholdBadge from "@/components/customers/HouseholdBadge";
 import type { Customer } from "@/types";
 import { MapPin, Phone, Mail } from "lucide-react";
 
+type CustomerListItem = Customer & { householdMemberCount?: number };
+
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<CustomerListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("");
@@ -32,6 +35,19 @@ export default function CustomersPage() {
     const timeout = setTimeout(fetchCustomers, 300);
     return () => clearTimeout(timeout);
   }, [fetchCustomers]);
+
+  const householdLabels = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const customer of customers) {
+      const household = customer.household;
+      if (!household || typeof household !== "object") continue;
+      labels.set(
+        household._id,
+        [household.streetAddress, household.city].filter(Boolean).join(", ")
+      );
+    }
+    return labels;
+  }, [customers]);
 
   return (
     <div>
@@ -69,7 +85,23 @@ export default function CustomersPage() {
               href={`/customers/${customer._id}`}
               className="block rounded-xl bg-white border border-brand-border p-5 hover:shadow-md transition-shadow"
             >
-              <h3 className="font-semibold text-brand-black">{customer.name}</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold text-brand-black">{customer.name}</h3>
+                {(customer.householdMemberCount ?? 1) > 1 && (
+                  <HouseholdBadge
+                    label={`${customer.householdMemberCount} people`}
+                    memberCount={customer.householdMemberCount ?? 1}
+                    compact
+                  />
+                )}
+              </div>
+              {customer.household &&
+                typeof customer.household === "object" &&
+                (customer.householdMemberCount ?? 1) > 1 && (
+                  <p className="mt-1 text-xs font-medium text-brand-blue">
+                    {householdLabels.get(customer.household._id) || "Shared household"}
+                  </p>
+                )}
               <div className="mt-2 space-y-1 text-sm text-gray-500">
                 <p className="flex items-center gap-2">
                   <Phone className="h-3.5 w-3.5" />

@@ -22,10 +22,11 @@ import { STATUS_COLORS } from "@/lib/constants";
 import {
   jobToCalendarEvent,
   formatCurrency,
-  getCustomerName,
   getJobAddress,
   formatTime,
 } from "@/lib/utils";
+import { getJobHouseholdTitle, getJobHouseholdEventTitle } from "@/lib/household-display";
+import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import { getJobDateOnly } from "@/lib/dates";
 import JobDetailsModal from "@/components/jobs/JobDetailsModal";
 import MobileDaySheet from "@/components/calendar/MobileDaySheet";
@@ -235,7 +236,7 @@ export default function JobCalendar() {
 
     return {
       ...event,
-      title: [getCustomerName(job), address, services].filter(Boolean).join(" · "),
+      title: getJobHouseholdEventTitle(job, jobs, [address, services].filter(Boolean) as string[]),
       backgroundColor: STATUS_COLORS[job.status],
       borderColor: STATUS_COLORS[job.status],
       extendedProps: { job, services, address },
@@ -351,7 +352,7 @@ export default function JobCalendar() {
             style={{ backgroundColor: STATUS_COLORS[job.status] }}
           />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm text-brand-black">{getCustomerName(job)}</p>
+            <JobCustomerHeader job={job} compact showMembers={false} />
             {address && <p className="text-sm text-gray-600 mt-0.5">{address}</p>}
             <p className="text-xs text-gray-500 mt-1">
               {formatTime(job.startTime)} – {formatTime(job.endTime)}
@@ -368,8 +369,8 @@ export default function JobCalendar() {
         <span
           className="gpw-job-dot"
           style={{ backgroundColor: STATUS_COLORS[job.status] }}
-          title={getCustomerName(job)}
-          aria-label={getCustomerName(job)}
+          title={getJobHouseholdTitle(job, jobs)}
+          aria-label={getJobHouseholdTitle(job, jobs)}
         />
       );
     }
@@ -377,14 +378,14 @@ export default function JobCalendar() {
     if (isMonth) {
       return (
         <div className="fc-event-main-frame px-1 py-0.5 leading-tight overflow-hidden text-[#7c2d12]">
-          <div className="font-semibold truncate text-[11px]">{getCustomerName(job)}</div>
+          <div className="font-semibold truncate text-[11px]">{getJobHouseholdTitle(job, jobs)}</div>
         </div>
       );
     }
 
     return (
       <div className="fc-event-main-frame px-1 py-0.5 leading-tight overflow-hidden text-[#7c2d12]">
-        <div className="font-semibold truncate text-[11px]">{getCustomerName(job)}</div>
+        <div className="font-semibold truncate text-[11px]">{getJobHouseholdTitle(job, jobs)}</div>
         {address && <div className="truncate text-[10px] opacity-90">{address}</div>}
         <div className="truncate text-[10px] opacity-90">{arg.timeText}</div>
       </div>
@@ -393,7 +394,9 @@ export default function JobCalendar() {
 
   if (isMobile) {
     return (
-      <MobileCalendarView jobs={jobs} loading={loading} />
+      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+        <MobileCalendarView jobs={jobs} loading={loading} />
+      </div>
     );
   }
 

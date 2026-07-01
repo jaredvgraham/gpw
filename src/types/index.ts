@@ -9,6 +9,18 @@ export interface Customer {
   city?: string;
   state?: string;
   zipCode?: string;
+  household?: string | Household;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Household {
+  _id: string;
+  streetAddress: string;
+  city: string;
+  state?: string;
+  zipCode?: string;
+  addressKey: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,3 +66,5 @@ export interface DashboardStats {
   estimatedRevenueWeek: number;
   estimatedRevenueMonth: number;
 }
+
+export type { BusinessInsights, RevenuePoint, WeekInsights, MonthInsights, YearInsights } from "@/lib/dashboard-stats";

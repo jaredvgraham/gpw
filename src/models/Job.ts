@@ -2,6 +2,7 @@ import mongoose, { Schema, type Model } from "mongoose";
 import { JOB_STATUSES } from "@/lib/constants";
 import "./Customer";
 import "./Service";
+import "./Household";
 
 export interface IJobService {
   service?: mongoose.Types.ObjectId;

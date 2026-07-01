@@ -5,12 +5,12 @@ import type { Job } from "@/types";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import StatusBadge from "@/components/ui/StatusBadge";
+import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import { getJobDateOnly } from "@/lib/dates";
 import {
   formatCurrency,
   formatDate,
   formatTime,
-  getCustomerName,
   getCustomerAddress,
   getJobDuration,
 } from "@/lib/utils";
@@ -110,8 +110,8 @@ export default function JobDetailsModal({
     <Modal open={open} onClose={onClose} title="Job Details" size="lg">
       <div className="space-y-5">
         <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-brand-black">{getCustomerName(job)}</h3>
+          <div className="min-w-0 flex-1">
+            <JobCustomerHeader job={job} />
             {customer && (
               <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                 <MapPin className="h-4 w-4" />

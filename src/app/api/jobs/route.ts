@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
+import { jobCustomerPopulate } from "@/lib/job-populate";
 import { parseJobDateOnly } from "@/lib/dates";
 import { findJobTimeConflict } from "@/lib/job-scheduling";
 import { apiError, apiSuccess } from "@/lib/api";
@@ -7,6 +8,7 @@ import { requireApiAuth } from "@/lib/api-auth";
 import Customer from "@/models/Customer";
 import Job from "@/models/Job";
 import { jobSchema } from "@/lib/validations";
+import { ensureHouseholdForCustomer } from "@/lib/household";
 
 export async function GET(request: NextRequest) {
   const authError = await requireApiAuth(request);
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     let jobs = await Job.find(filter)
-      .populate("customer")
+      .populate(jobCustomerPopulate)
       .populate("services.service")
       .sort({ jobDate: 1, startTime: 1 });
 
@@ -97,13 +99,14 @@ export async function POST(request: NextRequest) {
       }
     } else if (customer) {
       customerDoc = await Customer.create(customer);
+      await ensureHouseholdForCustomer(customerDoc._id.toString());
     } else {
       return apiError("Customer is required");
     }
 
     const sameDayJobs = await Job.find({
       jobDate: parseJobDateOnly(jobData.jobDate),
-    }).populate("customer");
+    }).populate(jobCustomerPopulate);
 
     const conflict = findJobTimeConflict(
       sameDayJobs,
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
     });
 
     const populated = await Job.findById(job._id)
-      .populate("customer")
+      .populate(jobCustomerPopulate)
       .populate("services.service");
 
     return apiSuccess(populated, 201);

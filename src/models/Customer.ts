@@ -1,4 +1,4 @@
-import mongoose, { Schema, type Model } from "mongoose";
+import mongoose, { Schema, type Model, type Types } from "mongoose";
 
 export interface ICustomer {
   name: string;
@@ -8,6 +8,7 @@ export interface ICustomer {
   city?: string;
   state?: string;
   zipCode?: string;
+  household?: Types.ObjectId;
 }
 
 const CustomerSchema = new Schema<ICustomer>(
@@ -19,6 +20,7 @@ const CustomerSchema = new Schema<ICustomer>(
     city: { type: String, trim: true },
     state: { type: String, trim: true },
     zipCode: { type: String, trim: true },
+    household: { type: Schema.Types.ObjectId, ref: "Household", index: true },
   },
   { timestamps: true }
 );

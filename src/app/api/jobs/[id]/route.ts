@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
+import { jobCustomerPopulate } from "@/lib/job-populate";
 import { parseJobDateOnly } from "@/lib/dates";
 import { findJobTimeConflict } from "@/lib/job-scheduling";
 import { apiError, apiSuccess } from "@/lib/api";
@@ -7,6 +8,7 @@ import { requireApiAuth } from "@/lib/api-auth";
 import Customer from "@/models/Customer";
 import Job from "@/models/Job";
 import { jobSchema } from "@/lib/validations";
+import { ensureHouseholdForCustomer } from "@/lib/household";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { id } = await context.params;
 
     const job = await Job.findById(id)
-      .populate("customer")
+      .populate(jobCustomerPopulate)
       .populate("services.service");
 
     if (!job) {
@@ -52,7 +54,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const sameDayJobs = await Job.find({
       jobDate: parseJobDateOnly(jobData.jobDate),
       _id: { $ne: id },
-    }).populate("customer");
+    }).populate(jobCustomerPopulate);
 
     const conflict = findJobTimeConflict(
       sameDayJobs,
@@ -75,6 +77,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const existingJob = await Job.findById(id);
       if (existingJob) {
         await Customer.findByIdAndUpdate(existingJob.customer, customer);
+        await ensureHouseholdForCustomer(existingJob.customer.toString());
       }
     }
 
@@ -82,7 +85,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       new: true,
       runValidators: true,
     })
-      .populate("customer")
+      .populate(jobCustomerPopulate)
       .populate("services.service");
 
     if (!job) {

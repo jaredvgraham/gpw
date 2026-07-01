@@ -8,6 +8,7 @@ import {
 } from "date-fns";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
+import { jobCustomerPopulate } from "@/lib/job-populate";
 import { getJobDateOnly } from "@/lib/dates";
 import { apiError, apiSuccess } from "@/lib/api";
 import { requireApiAuth } from "@/lib/api-auth";
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     const monthEnd = format(endOfMonth(now), "yyyy-MM-dd");
 
     const allJobs = await Job.find()
-      .populate("customer")
+      .populate(jobCustomerPopulate)
       .populate("services.service")
       .sort({ jobDate: 1, startTime: 1 });
 
