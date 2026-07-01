@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
   type ReactNode,
 } from "react";
@@ -43,12 +42,6 @@ export function JobModalProvider({ children }: { children: ReactNode }) {
     notifyJobSaved();
   }, []);
 
-  useEffect(() => {
-    const handler = () => openNewJob();
-    window.addEventListener("gpw:open-new-job", handler);
-    return () => window.removeEventListener("gpw:open-new-job", handler);
-  }, [openNewJob]);
-
   return (
     <JobModalContext.Provider value={{ openNewJob, openEditJob }}>
       {children}
@@ -58,6 +51,7 @@ export function JobModalProvider({ children }: { children: ReactNode }) {
         onClose={() => {
           setNewOpen(false);
           setNewPrefill(null);
+          requestAnimationFrame(() => window.scrollTo(0, 0));
         }}
         onCreated={handleJobSaved}
       />
@@ -67,6 +61,7 @@ export function JobModalProvider({ children }: { children: ReactNode }) {
         onClose={() => {
           setEditOpen(false);
           setEditJobId(null);
+          requestAnimationFrame(() => window.scrollTo(0, 0));
         }}
         onUpdated={handleJobSaved}
       />

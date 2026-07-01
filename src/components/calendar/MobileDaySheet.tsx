@@ -5,6 +5,7 @@ import { getJobDateOnly } from "@/lib/dates";
 import type { Job } from "@/types";
 import { formatTime, getCustomerName, getJobAddress } from "@/lib/utils";
 import { STATUS_COLORS } from "@/lib/constants";
+import { getNewJobTimePrefill } from "@/lib/calendar-mobile";
 import { X, Plus, MapPin, Clock } from "lucide-react";
 
 interface MobileDaySheetProps {
@@ -93,7 +94,10 @@ export default function MobileDaySheet({
         <div className="shrink-0 p-4 border-t border-brand-border bg-white">
           <button
             type="button"
-            onClick={() => onAddJob(dateStr, "08:00", "12:00")}
+            onClick={() => {
+              const { startTime, endTime } = getNewJobTimePrefill(jobs, dateStr);
+              onAddJob(dateStr, startTime, endTime);
+            }}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-red py-4 text-base font-semibold text-white active:bg-red-700"
           >
             <Plus className="h-5 w-5" />

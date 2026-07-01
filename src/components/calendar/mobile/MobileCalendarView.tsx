@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addMonths,
   eachDayOfInterval,
@@ -18,12 +18,13 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronRight as RowChevron,
+  ChevronUp,
+  ChevronDown,
   CalendarDays,
   Plus,
 } from "lucide-react";
 import type { Job } from "@/types";
 import { STATUS_COLORS } from "@/lib/constants";
-import { getJobDateOnly } from "@/lib/dates";
 import {
   formatCompactCurrency,
   formatDurationShort,
@@ -33,6 +34,7 @@ import {
   getJobsForDate,
   getJobServiceEntries,
   getJobCellLabel,
+  getNewJobTimePrefill,
 } from "@/lib/calendar-mobile";
 import {
   formatCurrency,
@@ -50,11 +52,25 @@ import { usePathname } from "next/navigation";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const PANEL_COLLAPSED_HEIGHT = 220;
+type DayPanelSize = "collapsed" | "default" | "expanded" | "full";
 
-function getExpandedPanelHeight(containerHeight: number) {
-  return Math.max(PANEL_COLLAPSED_HEIGHT, Math.round(containerHeight * 0.72));
-}
+const DAY_PANEL_ORDER: DayPanelSize[] = ["collapsed", "default", "expanded", "full"];
+
+const CALENDAR_FLEX: Record<DayPanelSize, string> = {
+  collapsed: "flex-[1.35] min-h-[100px]",
+  default: "flex-[1.05] min-h-[100px]",
+  expanded: "flex-[0.3] min-h-[56px]",
+  full: "flex-[0.12] min-h-[44px]",
+};
+
+const DAY_PANEL_FLEX: Record<DayPanelSize, string> = {
+  collapsed: "flex-[0.8] min-h-[180px]",
+  default: "flex-1 min-h-[200px]",
+  expanded: "flex-[2] min-h-[300px]",
+  full: "flex-[3] min-h-[360px]",
+};
+
+const PACKED_DAY_JOB_COUNT = 3;
 
 interface MobileCalendarViewProps {
   jobs: Job[];
@@ -69,12 +85,9 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [jobModalOpen, setJobModalOpen] = useState(false);
-  const [panelHeight, setPanelHeight] = useState(PANEL_COLLAPSED_HEIGHT);
-  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
-  const touchStartX = useRef(0);
-  const calendarAreaRef = useRef<HTMLDivElement>(null);
-  const isDraggingPanelRef = useRef(false);
-  const panelDragRef = useRef({ startY: 0, startHeight: PANEL_COLLAPSED_HEIGHT, moved: false });
+  const [dayPanelSize, setDayPanelSize] = useState<DayPanelSize>("default");
+  const jobListRef = useRef<HTMLDivElement>(null);
+  const handleDragRef = useRef({ startY: 0, moved: false });
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(month);
@@ -94,10 +107,89 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
   const { openNewJob } = useJobModals();
 
   useEffect(() => {
-    const handler = () => onRefresh();
+    const handler = () => {
+      onRefresh();
+      requestAnimationFrame(() => {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      });
+    };
     window.addEventListener("gpw:job-saved", handler);
     return () => window.removeEventListener("gpw:job-saved", handler);
   }, [onRefresh]);
+
+  useEffect(() => {
+    jobListRef.current?.scrollTo({ top: 0 });
+  }, [selectedDateStr]);
+
+  function selectDate(day: Date) {
+    if (!isSameMonth(day, month)) {
+      setMonth(startOfMonth(day));
+    }
+    setSelectedDate(day);
+    const count = getJobsForDate(jobs, format(day, "yyyy-MM-dd")).length;
+    if (count >= 5) setDayPanelSize("full");
+    else if (count >= PACKED_DAY_JOB_COUNT) setDayPanelSize("expanded");
+  }
+
+  function stepDayPanel(direction: "up" | "down") {
+    setDayPanelSize((current) => {
+      const index = DAY_PANEL_ORDER.indexOf(current);
+      if (direction === "up") {
+        return DAY_PANEL_ORDER[Math.min(index + 1, DAY_PANEL_ORDER.length - 1)];
+      }
+      return DAY_PANEL_ORDER[Math.max(index - 1, 0)];
+    });
+  }
+
+  function toggleDayPanelExpanded() {
+    setDayPanelSize((size) => {
+      if (size === "full" || size === "expanded") return "default";
+      if (size === "collapsed") return "expanded";
+      return "expanded";
+    });
+  }
+
+  function resizeHandleLabel() {
+    if (dayPanelSize === "full") {
+      return { icon: ChevronDown, text: "Show less" };
+    }
+    if (dayPanelSize === "expanded") {
+      return { icon: ChevronUp, text: "Drag up for max" };
+    }
+    if (dayPanelSize === "collapsed") {
+      return { icon: ChevronUp, text: "Drag up for more" };
+    }
+    return { icon: ChevronUp, text: "Drag up to expand" };
+  }
+
+  const handleLabel = resizeHandleLabel();
+  const HandleIcon = handleLabel.icon;
+
+  function handleResizePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    handleDragRef.current = { startY: e.clientY, moved: false };
+  }
+
+  function handleResizePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const delta = handleDragRef.current.startY - e.clientY;
+    if (Math.abs(delta) > 8) handleDragRef.current.moved = true;
+  }
+
+  function handleResizePointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+
+    const delta = handleDragRef.current.startY - e.clientY;
+    if (!handleDragRef.current.moved) {
+      toggleDayPanelExpanded();
+      return;
+    }
+    if (delta > 36) stepDayPanel("up");
+    else if (delta < -36) stepDayPanel("down");
+  }
 
   function goToday() {
     const today = new Date();
@@ -105,121 +197,57 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
     setSelectedDate(today);
   }
 
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
+  function goPrevMonth() {
+    setMonth((m) => subMonths(m, 1));
   }
 
-  function handleTouchEnd(e: React.TouchEvent) {
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(diff) < 60) return;
-    if (diff > 0) setMonth((m) => subMonths(m, 1));
-    else setMonth((m) => addMonths(m, 1));
+  function goNextMonth() {
+    setMonth((m) => addMonths(m, 1));
   }
 
-  const snapPanelHeight = useCallback((height: number) => {
-    const container = calendarAreaRef.current;
-    if (!container) return PANEL_COLLAPSED_HEIGHT;
-    const expanded = getExpandedPanelHeight(container.clientHeight);
-    const mid = (PANEL_COLLAPSED_HEIGHT + expanded) / 2;
-    return height >= mid ? expanded : PANEL_COLLAPSED_HEIGHT;
-  }, []);
-
-  const togglePanelHeight = useCallback(() => {
-    const container = calendarAreaRef.current;
-    if (!container) return;
-    const expanded = getExpandedPanelHeight(container.clientHeight);
-    setPanelHeight((h) => (h < (PANEL_COLLAPSED_HEIGHT + expanded) / 2 ? expanded : PANEL_COLLAPSED_HEIGHT));
-  }, []);
-
-  function handlePanelPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    isDraggingPanelRef.current = true;
-    panelDragRef.current = {
-      startY: e.clientY,
-      startHeight: panelHeight,
-      moved: false,
-    };
-    setIsDraggingPanel(true);
-  }
-
-  function handlePanelPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!isDraggingPanelRef.current) return;
-    const { startY, startHeight } = panelDragRef.current;
-    const deltaY = startY - e.clientY;
-    if (Math.abs(deltaY) > 6) panelDragRef.current.moved = true;
-
-    const container = calendarAreaRef.current;
-    if (!container) return;
-    const max = getExpandedPanelHeight(container.clientHeight);
-    const next = Math.min(max, Math.max(PANEL_COLLAPSED_HEIGHT, startHeight + deltaY));
-    setPanelHeight(next);
-  }
-
-  function handlePanelPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    if (!isDraggingPanelRef.current) return;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    isDraggingPanelRef.current = false;
-    setIsDraggingPanel(false);
-    if (panelDragRef.current.moved) {
-      setPanelHeight((h) => snapPanelHeight(h));
-    } else {
-      togglePanelHeight();
-    }
-  }
-
-  function handlePanelPointerCancel(e: React.PointerEvent<HTMLDivElement>) {
-    if (!isDraggingPanelRef.current) return;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    isDraggingPanelRef.current = false;
-    setIsDraggingPanel(false);
-    setPanelHeight((h) => snapPanelHeight(h));
-  }
-
-  const containerHeight = calendarAreaRef.current?.clientHeight ?? 0;
-  const expandedPanelHeight = containerHeight
-    ? getExpandedPanelHeight(containerHeight)
-    : PANEL_COLLAPSED_HEIGHT + 200;
-  const isPanelExpanded =
-    panelHeight >= (PANEL_COLLAPSED_HEIGHT + expandedPanelHeight) / 2;
+  const isCurrentMonth = isSameMonth(month, new Date());
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-brand-gray">
       <MobileHeader onMenuOpen={() => setMenuOpen(true)} />
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} currentPath={pathname} />
 
-      <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 bg-white border-b border-brand-border">
-        <div className="flex items-center rounded-lg border border-brand-border overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 border-b border-brand-border bg-white px-3 py-3">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setMonth((m) => subMonths(m, 1))}
-            className="p-2 active:bg-brand-gray"
+            onClick={goPrevMonth}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-gray/40 active:bg-brand-gray"
             aria-label="Previous month"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5 text-brand-black" strokeWidth={2.5} />
           </button>
+
+          <div className="min-w-0 flex-1 text-center">
+            <p className="text-base font-bold text-brand-black">{format(month, "MMMM yyyy")}</p>
+            {!isCurrentMonth && (
+              <button
+                type="button"
+                onClick={goToday}
+                className="mt-0.5 text-xs font-semibold text-brand-blue active:opacity-70"
+              >
+                Jump to today
+              </button>
+            )}
+          </div>
+
           <button
             type="button"
-            onClick={goToday}
-            className="px-3 py-2 text-xs font-semibold border-x border-brand-border active:bg-brand-gray"
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            onClick={() => setMonth((m) => addMonths(m, 1))}
-            className="p-2 active:bg-brand-gray"
+            onClick={goNextMonth}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-gray/40 active:bg-brand-gray"
             aria-label="Next month"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-5 w-5 text-brand-black" strokeWidth={2.5} />
           </button>
         </div>
-        <p className="text-sm font-bold text-brand-black">{format(month, "MMMM yyyy")}</p>
       </div>
 
-      <div
-        ref={calendarAreaRef}
-        className="flex-1 flex flex-col min-h-0 bg-white relative"
-      >
+      <div className="flex-1 flex flex-col min-h-0 bg-white relative">
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
             <LoadingSpinner />
@@ -227,9 +255,7 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
         )}
 
         <div
-          className="flex-1 min-h-0 overflow-y-auto"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          className={`${CALENDAR_FLEX[dayPanelSize]} overflow-y-auto overscroll-contain`}
         >
         <div className="shrink-0 grid grid-cols-7 border-b border-brand-border">
           {WEEKDAYS.map((day) => (
@@ -256,7 +282,7 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
               <button
                 key={dateStr}
                 type="button"
-                onClick={() => setSelectedDate(day)}
+                onClick={() => selectDate(day)}
                 className={`min-h-[72px] border-r border-b border-brand-border p-1 text-left flex flex-col ${
                   selected
                     ? "bg-brand-blue text-white"
@@ -330,29 +356,29 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
         </div>
 
         <div
-          className="shrink-0 flex flex-col border-t-2 border-brand-border bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]"
-          style={{
-            height: panelHeight,
-            transition: isDraggingPanel ? "none" : "height 0.25s ease-out",
-          }}
-          aria-expanded={isPanelExpanded}
+          className={`${DAY_PANEL_FLEX[dayPanelSize]} flex flex-col min-h-0 border-t-2 border-brand-border bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)] overflow-hidden`}
         >
-          <div
-            role="separator"
-            aria-label="Drag to resize day details"
-            className="shrink-0 flex flex-col items-center justify-center py-3 cursor-grab active:cursor-grabbing touch-none select-none"
-            onPointerDown={handlePanelPointerDown}
-            onPointerMove={handlePanelPointerMove}
-            onPointerUp={handlePanelPointerUp}
-            onPointerCancel={handlePanelPointerCancel}
+          <button
+            type="button"
+            aria-label={
+              dayPanelSize === "full" || dayPanelSize === "expanded"
+                ? "Shrink day details"
+                : "Expand day details"
+            }
+            className="shrink-0 flex flex-col items-center justify-center py-2.5 w-full touch-none select-none active:bg-brand-gray/60"
+            onPointerDown={handleResizePointerDown}
+            onPointerMove={handleResizePointerMove}
+            onPointerUp={handleResizePointerUp}
+            onPointerCancel={handleResizePointerUp}
           >
             <div className="h-1 w-12 rounded-full bg-gray-400" />
-            <p className="mt-1 text-[10px] font-medium text-gray-400">
-              {isPanelExpanded ? "Drag down to collapse" : "Drag up for more"}
-            </p>
-          </div>
+            <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-gray-400">
+              <HandleIcon className="h-3 w-3" />
+              {handleLabel.text}
+            </span>
+          </button>
 
-          <div className="flex items-center justify-between gap-2 px-4 pb-2 border-b border-brand-border">
+          <div className="flex items-center justify-between gap-2 px-4 pb-2 border-b border-brand-border shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               <CalendarDays className="h-4 w-4 text-gray-400 shrink-0" />
               <h3 className="text-sm font-bold text-brand-black truncate">
@@ -361,13 +387,10 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
             </div>
             <button
               type="button"
-              onClick={() =>
-                openNewJob({
-                  jobDate: selectedDateStr,
-                  startTime: "08:00",
-                  endTime: "12:00",
-                })
-              }
+              onClick={() => {
+                const { startTime, endTime } = getNewJobTimePrefill(jobs, selectedDateStr);
+                openNewJob({ jobDate: selectedDateStr, startTime, endTime });
+              }}
               className="flex shrink-0 items-center gap-1 rounded-lg bg-brand-red px-2.5 py-1.5 text-xs font-semibold text-white active:bg-red-700"
               aria-label={`Add job on ${format(selectedDate, "MMM d")}`}
             >
@@ -402,7 +425,10 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-2 min-h-0">
+          <div
+            ref={jobListRef}
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-3 space-y-2"
+          >
             {selectedDayJobs.length === 0 ? (
               <p className="text-center text-sm text-gray-500 py-6">No jobs scheduled this day.</p>
             ) : (
@@ -472,6 +498,12 @@ export default function MobileCalendarView({ jobs, loading, onRefresh }: MobileC
                   </button>
                 );
               })
+            )}
+            {selectedDayJobs.length > 0 && (
+              <div
+                aria-hidden
+                className="w-full min-h-[6rem] shrink-0 rounded-xl border border-transparent pointer-events-none"
+              />
             )}
           </div>
         </div>

@@ -1,31 +1,45 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
-import MobileNav from "./MobileNav";
 import MobileHeader from "./MobileHeader";
 import MobileMenu from "./MobileMenu";
-import { useState } from "react";
+import MobilePageFooter from "./MobilePageFooter";
+import MobileBottomNav from "./MobileBottomNav";
 import { JobModalProvider } from "@/contexts/JobModalContext";
+
+const BOTTOM_NAV_PATHS = ["/today", "/jobs", "/customers", "/dashboard"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isCalendar = pathname === "/calendar";
+  const showBottomNav = BOTTOM_NAV_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  );
+  const isToday = pathname === "/today";
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <JobModalProvider>
-      <div className="flex min-h-screen bg-brand-gray max-md:h-dvh max-md:overflow-hidden">
+      <div className="flex min-h-screen bg-brand-gray max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden">
         <Sidebar currentPath={pathname} />
         <div className="flex flex-1 flex-col min-h-0 min-w-0 max-md:overflow-hidden">
           <main
             className={`flex-1 flex flex-col min-h-0 min-w-0 ${
-              isCalendar ? "max-md:overflow-hidden" : "overflow-auto"
+              isCalendar
+                ? "max-md:overflow-hidden"
+                : showBottomNav
+                  ? "overflow-auto main-with-bottom-nav"
+                  : "overflow-auto"
             }`}
           >
             {!isCalendar && (
               <div className="md:hidden shrink-0">
-                <MobileHeader onMenuOpen={() => setMenuOpen(true)} />
+                <MobileHeader
+                  onMenuOpen={() => setMenuOpen(true)}
+                  variant={isToday ? "itinerary" : "default"}
+                />
                 <MobileMenu
                   open={menuOpen}
                   onClose={() => setMenuOpen(false)}
@@ -37,7 +51,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               className={
                 isCalendar
                   ? "flex-1 flex flex-col min-h-0 overflow-hidden p-0 md:p-4 md:overflow-auto"
-                  : "p-4 md:p-8 pt-0 md:pt-8 pb-4 md:pb-8"
+                  : isToday
+                    ? "flex-1 flex flex-col min-h-0 overflow-auto bg-[#f4f5f7] px-4 pt-0 pb-4 md:bg-transparent md:p-8 md:pt-8 md:pb-8"
+                    : "p-4 md:p-8 pt-0 md:pt-8 pb-4 md:pb-8"
               }
             >
               <div
@@ -46,10 +62,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 }
               >
                 {children}
+                {!isCalendar && !showBottomNav && <MobilePageFooter />}
+                {showBottomNav && (
+                  <div className="md:hidden bottom-nav-clearance shrink-0" aria-hidden />
+                )}
               </div>
             </div>
           </main>
-          <MobileNav />
+          {showBottomNav && <MobileBottomNav />}
         </div>
       </div>
     </JobModalProvider>

@@ -398,5 +398,25 @@ body {
 }
 
 .safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Space for fixed mobile bottom nav + Safari home/URL bar */
+.bottom-nav-clearance {
+  min-height: calc(5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);
+}
+
+@media (max-width: 767px) {
+  .main-with-bottom-nav {
+    scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);
+  }
+}
+
+/* iOS Safari zooms focused inputs below 16px — keep form fields at 1rem on mobile */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 1rem;
+  }
 }

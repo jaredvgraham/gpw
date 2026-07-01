@@ -36,6 +36,7 @@ export default function Dropdown({
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const selectedOptionRef = useRef<HTMLLIElement>(null);
 
   const selected = options.find((opt) => opt.value === value);
 
@@ -60,6 +61,16 @@ export default function Dropdown({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const frame = requestAnimationFrame(() => {
+      selectedOptionRef.current?.scrollIntoView({ block: "center" });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [open, value]);
+
   return (
     <div ref={rootRef} className={cn("relative", className)}>
       <button
@@ -71,7 +82,7 @@ export default function Dropdown({
         disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex w-full min-h-[42px] items-center justify-between gap-2 rounded-xl border border-brand-border bg-white px-3 py-2.5 text-sm font-medium text-brand-black shadow-sm transition-colors",
+          "flex w-full min-h-[42px] items-center justify-between gap-2 rounded-xl border border-brand-border bg-white px-3 py-2.5 text-base md:text-sm font-medium text-brand-black shadow-sm transition-colors",
           "hover:border-gray-300 hover:bg-brand-gray/40 active:bg-brand-gray/60",
           open && "border-brand-blue ring-2 ring-brand-blue/20",
           error && "border-brand-red ring-brand-red/20",
@@ -99,7 +110,12 @@ export default function Dropdown({
           {options.map((opt) => {
             const isSelected = opt.value === value;
             return (
-              <li key={opt.value} role="option" aria-selected={isSelected}>
+              <li
+                key={opt.value}
+                ref={isSelected ? selectedOptionRef : undefined}
+                role="option"
+                aria-selected={isSelected}
+              >
                 <button
                   type="button"
                   onClick={() => {

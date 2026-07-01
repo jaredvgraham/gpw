@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { parseJobDateOnly } from "@/lib/dates";
+import { findJobTimeConflict } from "@/lib/job-scheduling";
 import { apiError, apiSuccess } from "@/lib/api";
 import Customer from "@/models/Customer";
 import Job from "@/models/Job";
@@ -91,6 +92,19 @@ export async function POST(request: NextRequest) {
       customerDoc = await Customer.create(customer);
     } else {
       return apiError("Customer is required");
+    }
+
+    const sameDayJobs = await Job.find({
+      jobDate: parseJobDateOnly(jobData.jobDate),
+    }).populate("customer");
+
+    const conflict = findJobTimeConflict(
+      sameDayJobs,
+      jobData.startTime,
+      jobData.endTime
+    );
+    if (conflict) {
+      return apiError(conflict, 409);
     }
 
     const job = await Job.create({

@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { JOB_STATUSES } from "@/lib/constants";
-
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
+import { timeToMinutes } from "@/lib/job-scheduling";
 
 export const customerSchema = z.object({
   name: z.string().min(1, "Customer name is required"),

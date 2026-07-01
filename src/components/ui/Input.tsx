@@ -19,7 +19,7 @@ export default function Input({ label, error, className, id, ...props }: InputPr
       <input
         id={inputId}
         className={cn(
-          "w-full rounded-lg border border-brand-border px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent",
+          "w-full rounded-lg border border-brand-border px-3 py-2 text-base md:text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent",
           error && "border-brand-red focus:ring-brand-red",
           className
         )}

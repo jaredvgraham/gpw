@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { parseJobDateOnly } from "@/lib/dates";
+import { findJobTimeConflict } from "@/lib/job-scheduling";
 import { apiError, apiSuccess } from "@/lib/api";
 import Customer from "@/models/Customer";
 import Job from "@/models/Job";
@@ -40,6 +41,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const { customerId, customer, ...jobData } = parsed.data;
+
+    const sameDayJobs = await Job.find({
+      jobDate: parseJobDateOnly(jobData.jobDate),
+      _id: { $ne: id },
+    }).populate("customer");
+
+    const conflict = findJobTimeConflict(
+      sameDayJobs,
+      jobData.startTime,
+      jobData.endTime,
+      id
+    );
+    if (conflict) {
+      return apiError(conflict, 409);
+    }
 
     const updateData: Record<string, unknown> = {
       ...jobData,

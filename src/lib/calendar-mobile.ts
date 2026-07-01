@@ -1,6 +1,20 @@
 import type { Job, JobService } from "@/types";
 import { getJobDateOnly } from "@/lib/dates";
+import { snapToTimeSlot } from "@/lib/time";
 import { getCustomerName } from "@/lib/utils";
+
+const DEFAULT_NEW_JOB_START = "08:00";
+const DEFAULT_NEW_JOB_END = "12:00";
+const NEW_JOB_GAP_MINUTES = 30;
+const DEFAULT_NEW_JOB_DURATION_MINUTES = 240;
+
+function addMinutesToTime(time: string, minutes: number): string {
+  const [hours, mins] = time.split(":").map(Number);
+  const total = hours * 60 + mins + minutes;
+  const h = Math.floor(total / 60) % 24;
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 export const SERVICE_PILL_STYLES: Record<string, { bg: string; text: string }> = {
   "House wash": { bg: "#dbeafe", text: "#1d4ed8" },
@@ -77,6 +91,25 @@ export function getJobsForDate(jobs: Job[], dateStr: string) {
   return jobs
     .filter((job) => getJobDateOnly(job.jobDate) === dateStr)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
+/** Default start/end when creating a job on a day that may already have jobs. */
+export function getNewJobTimePrefill(jobs: Job[], dateStr: string) {
+  const dayJobs = getJobsForDate(jobs, dateStr);
+  if (dayJobs.length === 0) {
+    return { startTime: DEFAULT_NEW_JOB_START, endTime: DEFAULT_NEW_JOB_END };
+  }
+
+  const latestEnd = dayJobs.reduce(
+    (latest, job) => (job.endTime > latest ? job.endTime : latest),
+    dayJobs[0].endTime
+  );
+  const startTime = snapToTimeSlot(addMinutesToTime(latestEnd, NEW_JOB_GAP_MINUTES));
+  const endTime = snapToTimeSlot(
+    addMinutesToTime(startTime, DEFAULT_NEW_JOB_DURATION_MINUTES)
+  );
+
+  return { startTime, endTime };
 }
 
 export function getDayRevenue(jobs: Job[]) {

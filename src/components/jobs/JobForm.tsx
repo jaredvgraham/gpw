@@ -10,6 +10,7 @@ import Select from "@/components/ui/Select";
 import TimeSelect from "@/components/ui/TimeSelect";
 import Button from "@/components/ui/Button";
 import { getJobDateOnly } from "@/lib/dates";
+import { findJobTimeConflict, timeToMinutes } from "@/lib/job-scheduling";
 import { jobSchema } from "@/lib/validations";
 import type { z } from "zod";
 import { JOB_STATUSES, type JobStatus } from "@/lib/constants";
@@ -57,8 +58,10 @@ export default function JobForm({
 }: JobFormProps) {
   const router = useRouter();
   const [services, setServices] = useState<Service[]>([]);
+  const [dayJobs, setDayJobs] = useState<Job[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [scheduleConflict, setScheduleConflict] = useState<string | null>(null);
 
   const customer =
     (job && typeof job.customer === "object" ? (job.customer as Customer) : null) ??
@@ -105,6 +108,7 @@ export default function JobForm({
   });
 
   const { append, remove } = useFieldArray({ control, name: "services" });
+  const jobDate = watch("jobDate");
   const startTime = watch("startTime");
   const endTime = watch("endTime");
   const selectedServices = watch("services");
@@ -115,6 +119,33 @@ export default function JobForm({
       .then((r) => r.json())
       .then(setServices);
   }, []);
+
+  useEffect(() => {
+    if (!jobDate) {
+      setDayJobs([]);
+      return;
+    }
+
+    fetch(`/api/jobs?startDate=${jobDate}&endDate=${jobDate}`)
+      .then((r) => r.json())
+      .then((data) => setDayJobs(Array.isArray(data) ? data : []))
+      .catch(() => setDayJobs([]));
+  }, [jobDate]);
+
+  useEffect(() => {
+    if (!jobDate || !startTime || !endTime) {
+      setScheduleConflict(null);
+      return;
+    }
+
+    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+      setScheduleConflict(null);
+      return;
+    }
+
+    const conflict = findJobTimeConflict(dayJobs, startTime, endTime, job?._id);
+    setScheduleConflict(conflict);
+  }, [jobDate, startTime, endTime, dayJobs, job?._id]);
 
   function toggleService(service: Service) {
     const existing = selectedServices?.findIndex((s) => s.name === service.name) ?? -1;
@@ -131,6 +162,12 @@ export default function JobForm({
   }
 
   async function onSubmit(data: z.infer<typeof jobSchema>) {
+    const conflict = findJobTimeConflict(dayJobs, data.startTime, data.endTime, job?._id);
+    if (conflict) {
+      setScheduleConflict(conflict);
+      return;
+    }
+
     setSubmitting(true);
     setError("");
 
@@ -171,7 +208,7 @@ export default function JobForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className={inModal ? "pb-4" : "pb-24 md:pb-0"}
+      className={inModal ? "pb-4" : "pb-20 md:pb-0"}
     >
       <input type="hidden" {...register("customerId")} />
 
@@ -244,6 +281,11 @@ export default function JobForm({
                 )}
               />
             </div>
+            {scheduleConflict && (
+              <p className="mt-2 text-sm text-brand-red" role="alert">
+                {scheduleConflict}
+              </p>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-brand-blue">
                 {startTime && endTime ? getJobDuration(startTime, endTime) : "Set times above"}
@@ -419,7 +461,7 @@ export default function JobForm({
               : "hidden md:flex gap-3 px-8 py-5 border-t border-brand-border bg-brand-gray/30"
           }
         >
-          <Button type="submit" size="lg" disabled={submitting}>
+          <Button type="submit" size="lg" disabled={submitting || !!scheduleConflict}>
             {submitting ? "Saving..." : job ? "Save Changes" : "Create Job"}
           </Button>
           <Button type="button" variant="secondary" size="lg" onClick={handleCancel}>
@@ -433,7 +475,7 @@ export default function JobForm({
         className={
           inModal
             ? "flex md:hidden gap-2 sticky bottom-0 bg-white border-t border-brand-border pt-4 mt-6 -mx-1 px-1"
-            : "fixed bottom-[4.5rem] inset-x-0 z-30 md:hidden px-4"
+            : "fixed bottom-0 inset-x-0 z-30 md:hidden px-4 safe-area-bottom"
         }
       >
         <div
@@ -451,7 +493,11 @@ export default function JobForm({
           >
             Cancel
           </Button>
-          <Button type="submit" className="flex-[2]" disabled={submitting}>
+          <Button
+            type="submit"
+            className="flex-[2]"
+            disabled={submitting || !!scheduleConflict}
+          >
             {submitting ? "Saving..." : job ? "Save" : "Create Job"}
           </Button>
         </div>

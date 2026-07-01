@@ -8,9 +8,13 @@ import {
   LayoutDashboard,
   Settings,
   X,
+  Plus,
+  Sun,
 } from "lucide-react";
+import { useJobModals } from "@/contexts/JobModalContext";
 
 const links = [
+  { href: "/today", label: "View Today", icon: Sun },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/customers", label: "Customers", icon: Users },
@@ -29,6 +33,8 @@ export default function MobileMenu({
   onClose,
   currentPath,
 }: MobileMenuProps) {
+  const { openNewJob } = useJobModals();
+
   if (!open) return null;
 
   return (
@@ -67,6 +73,19 @@ export default function MobileMenu({
             );
           })}
         </nav>
+        <div className="p-3 border-t border-brand-border safe-area-bottom">
+          <button
+            type="button"
+            onClick={() => {
+              openNewJob();
+              onClose();
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-3 text-sm font-semibold text-white active:bg-red-700"
+          >
+            <Plus className="h-5 w-5" />
+            New Job
+          </button>
+        </div>
       </aside>
     </div>
   );
