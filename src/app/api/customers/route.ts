@@ -1,10 +1,14 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
+import { requireApiAuth } from "@/lib/api-auth";
 import { apiError, apiSuccess } from "@/lib/api";
 import Customer from "@/models/Customer";
 import { customerSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
+  const authError = await requireApiAuth(request);
+  if (authError) return authError;
+
   try {
     await connectDB();
 
@@ -36,6 +40,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireApiAuth(request);
+  if (authError) return authError;
+
   try {
     await connectDB();
     const body = await request.json();

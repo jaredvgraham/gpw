@@ -1,13 +1,17 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { apiError, apiSuccess } from "@/lib/api";
+import { requireApiAuth } from "@/lib/api-auth";
 import Customer from "@/models/Customer";
 import Job from "@/models/Job";
 import { customerSchema } from "@/lib/validations";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  const authError = await requireApiAuth(request);
+  if (authError) return authError;
+
   try {
     await connectDB();
     const { id } = await context.params;
@@ -30,6 +34,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const authError = await requireApiAuth(request);
+  if (authError) return authError;
+
   try {
     await connectDB();
     const { id } = await context.params;
@@ -56,7 +63,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const authError = await requireApiAuth(request);
+  if (authError) return authError;
+
   try {
     await connectDB();
     const { id } = await context.params;

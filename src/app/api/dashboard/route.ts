@@ -6,12 +6,17 @@ import {
   startOfMonth,
   endOfMonth,
 } from "date-fns";
+import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { getJobDateOnly } from "@/lib/dates";
 import { apiError, apiSuccess } from "@/lib/api";
+import { requireApiAuth } from "@/lib/api-auth";
 import Job from "@/models/Job";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = await requireApiAuth(request);
+  if (authError) return authError;
+
   try {
     await connectDB();
 

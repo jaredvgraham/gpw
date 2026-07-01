@@ -1,12 +1,16 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { apiError, apiSuccess } from "@/lib/api";
+import { requireApiAuth } from "@/lib/api-auth";
 import { sortServicesForDisplay } from "@/lib/services";
 import Service from "@/models/Service";
 import { serviceSchema } from "@/lib/validations";
 import { seedDefaultServices } from "@/lib/seed-services";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = await requireApiAuth(request);
+  if (authError) return authError;
+
   try {
     await connectDB();
     await seedDefaultServices();
@@ -20,6 +24,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireApiAuth(request);
+  if (authError) return authError;
+
   try {
     await connectDB();
     const body = await request.json();
