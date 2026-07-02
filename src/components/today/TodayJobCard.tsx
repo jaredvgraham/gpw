@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FileText,
   Phone,
@@ -11,6 +11,7 @@ import {
   Check,
   Wrench,
   DollarSign,
+  Pencil,
 } from "lucide-react";
 import type { Customer, Job } from "@/types";
 import ServicePill from "@/components/calendar/ServicePill";
@@ -37,7 +38,10 @@ function smsUrl(phone: string) {
   return `sms:${phone.replace(/\D/g, "")}`;
 }
 
-function buildPatchBody(job: Job, overrides: { status?: Job["status"]; paid?: boolean }) {
+function buildPatchBody(
+  job: Job,
+  overrides: { status?: Job["status"]; paid?: boolean; finalPrice?: number }
+) {
   const customerId =
     typeof job.customer === "object" ? job.customer._id : job.customer;
 
@@ -53,14 +57,17 @@ function buildPatchBody(job: Job, overrides: { status?: Job["status"]; paid?: bo
       customServiceName: s.customServiceName,
       notes: s.notes,
     })),
-    finalPrice: job.finalPrice,
+    finalPrice: overrides.finalPrice ?? job.finalPrice,
     paid: overrides.paid ?? job.paid ?? false,
     internalNotes: job.internalNotes,
     photoNotes: job.photoNotes,
   };
 }
 
-async function patchJob(job: Job, overrides: { status?: Job["status"]; paid?: boolean }) {
+async function patchJob(
+  job: Job,
+  overrides: { status?: Job["status"]; paid?: boolean; finalPrice?: number }
+) {
   const res = await fetch(`/api/jobs/${job._id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -90,6 +97,11 @@ export default function TodayJobCard({
   const [completing, setCompleting] = useState(false);
   const [updatingPaid, setUpdatingPaid] = useState(false);
   const [paid, setPaid] = useState(job.paid ?? false);
+  const [finalPrice, setFinalPrice] = useState(job.finalPrice);
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [priceDraft, setPriceDraft] = useState("");
+  const [updatingPrice, setUpdatingPrice] = useState(false);
+  const priceInputRef = useRef<HTMLInputElement>(null);
 
   const customer = getCustomer(job);
   const address =
@@ -103,10 +115,66 @@ export default function TodayJobCard({
     setPaid(job.paid ?? false);
   }, [job._id, job.paid]);
 
+  useEffect(() => {
+    setFinalPrice(job.finalPrice);
+  }, [job._id, job.finalPrice]);
+
+  useEffect(() => {
+    if (!editingPrice) return;
+    const frame = requestAnimationFrame(() => {
+      const input = priceInputRef.current;
+      if (!input) return;
+      input.focus();
+      input.select();
+      input.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editingPrice]);
+
+  function startEditPrice() {
+    setPriceDraft(finalPrice !== undefined ? String(finalPrice) : "");
+    setEditingPrice(true);
+  }
+
+  function cancelEditPrice() {
+    setEditingPrice(false);
+    setPriceDraft("");
+  }
+
+  async function savePrice() {
+    const parsed = Number(priceDraft);
+    if (Number.isNaN(parsed) || parsed < 0) return;
+
+    const previousPrice = finalPrice;
+    setFinalPrice(parsed);
+    setEditingPrice(false);
+    setPriceDraft("");
+    setUpdatingPrice(true);
+
+    try {
+      const ok = await patchJob(job, { finalPrice: parsed });
+      if (!ok) {
+        setFinalPrice(previousPrice);
+        setPriceDraft(previousPrice !== undefined ? String(previousPrice) : "");
+        setEditingPrice(true);
+      }
+    } finally {
+      setUpdatingPrice(false);
+    }
+  }
+
+  function handlePriceKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void savePrice();
+    }
+    if (e.key === "Escape") cancelEditPrice();
+  }
+
   async function handleMarkComplete() {
     setCompleting(true);
     try {
-      await patchJob(job, { status: "Completed" });
+      await patchJob(job, { status: "Completed", finalPrice });
     } finally {
       setCompleting(false);
     }
@@ -117,7 +185,7 @@ export default function TodayJobCard({
     setUpdatingPaid(true);
     setPaid(next);
     try {
-      const ok = await patchJob(job, { paid: next });
+      const ok = await patchJob(job, { paid: next, finalPrice });
       if (!ok) setPaid(!next);
     } finally {
       setUpdatingPaid(false);
@@ -218,62 +286,114 @@ export default function TodayJobCard({
 
         {/* Total & paid */}
         <div
-          className={`mt-3 flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${
+          className={`mt-3 rounded-xl border px-3.5 py-3.5 ${
             paid
               ? "border-green-200 bg-gradient-to-r from-green-50 to-emerald-50"
               : "border-emerald-100 bg-gradient-to-r from-white to-emerald-50/40"
           }`}
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                paid ? "bg-green-100" : "bg-emerald-100"
-              }`}
-            >
-              <DollarSign
-                className={`h-5 w-5 ${paid ? "text-green-600" : "text-emerald-600"}`}
-                strokeWidth={2.5}
-              />
+          {editingPrice ? (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-gray-800">Update job total</p>
+              <div className="flex items-center gap-2 rounded-xl border-2 border-emerald-200 bg-white px-4 py-3 min-h-[52px]">
+                <span className="text-2xl font-bold text-emerald-600">$</span>
+                <input
+                  ref={priceInputRef}
+                  type="text"
+                  inputMode="decimal"
+                  enterKeyHint="done"
+                  autoComplete="off"
+                  value={priceDraft}
+                  onChange={(e) => setPriceDraft(e.target.value.replace(/[^\d.]/g, ""))}
+                  onKeyDown={handlePriceKeyDown}
+                  disabled={updatingPrice}
+                  aria-label="Job total"
+                  placeholder="0.00"
+                  className="min-w-0 flex-1 border-0 bg-transparent text-2xl font-bold tabular-nums text-emerald-600 outline-none focus:ring-0"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void savePrice()}
+                  disabled={updatingPrice || priceDraft === ""}
+                  className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-bold text-white active:bg-emerald-700 disabled:opacity-50"
+                >
+                  <Check className="h-4 w-4" strokeWidth={3} />
+                  {updatingPrice ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEditPrice}
+                  disabled={updatingPrice}
+                  className="flex min-h-[48px] items-center justify-center rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 active:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                {paid ? "Collected" : "Job total"}
-              </p>
-              <p
-                className={`mt-0.5 text-xl font-bold tabular-nums leading-none ${
-                  paid ? "text-green-700" : "text-emerald-600"
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={startEditPrice}
+                className="flex min-h-[48px] flex-1 items-center gap-3 rounded-xl text-left active:bg-white/60 -mx-1 px-1"
+              >
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+                    paid ? "bg-green-100" : "bg-emerald-100"
+                  }`}
+                >
+                  <DollarSign
+                    className={`h-5 w-5 ${paid ? "text-green-600" : "text-emerald-600"}`}
+                    strokeWidth={2.5}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                    {paid ? "Collected" : "Job total"}
+                  </p>
+                  <p
+                    className={`mt-0.5 text-2xl font-bold tabular-nums leading-none ${
+                      paid ? "text-green-700" : "text-emerald-600"
+                    }`}
+                  >
+                    {formatCurrency(finalPrice)}
+                  </p>
+                  <p className="mt-1 flex items-center gap-1 text-xs font-medium text-gray-400">
+                    <Pencil className="h-3 w-3" />
+                    Tap to update
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTogglePaid}
+                disabled={updatingPaid}
+                className={`flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2.5 rounded-xl border px-4 py-3 transition-colors disabled:opacity-50 sm:w-auto sm:min-w-[9.5rem] ${
+                  paid
+                    ? "border-green-400 bg-white"
+                    : "border-gray-300 bg-white active:bg-gray-100"
                 }`}
               >
-                {formatCurrency(job.finalPrice)}
-              </p>
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${
+                    paid
+                      ? "border-green-600 bg-green-600 text-white"
+                      : "border-gray-300 bg-white"
+                  }`}
+                >
+                  {paid && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                </span>
+                <span
+                  className={`text-sm font-semibold ${paid ? "text-green-700" : "text-gray-600"}`}
+                >
+                  {paid ? "Paid" : "Mark paid"}
+                </span>
+              </button>
             </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleTogglePaid}
-            disabled={updatingPaid}
-            className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors disabled:opacity-50 ${
-              paid
-                ? "border-green-400 bg-white"
-                : "border-gray-300 bg-white active:bg-gray-100"
-            }`}
-          >
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 ${
-                paid
-                  ? "border-green-600 bg-green-600 text-white"
-                  : "border-gray-300 bg-white"
-              }`}
-            >
-              {paid && <Check className="h-3 w-3" strokeWidth={3} />}
-            </span>
-            <span
-              className={`text-xs font-semibold ${paid ? "text-green-700" : "text-gray-600"}`}
-            >
-              {paid ? "Paid" : "Mark paid"}
-            </span>
-          </button>
+          )}
         </div>
 
         {/* Actions */}
