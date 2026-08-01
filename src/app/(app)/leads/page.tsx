@@ -177,14 +177,27 @@ export default function LeadsPage() {
                 </label>
               </div>
 
-              {lead.services?.length > 0 && (
-                <p className="mt-3 text-sm text-gray-700">
-                  <span className="font-medium text-gray-500">Services: </span>
-                  {lead.services.join(" · ")}
+              <div className="mt-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Services
                 </p>
-              )}
+                {lead.services?.length > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {lead.services.map((service) => (
+                      <span
+                        key={service}
+                        className="rounded-full border border-brand-border bg-brand-gray px-2.5 py-0.5 text-xs font-medium text-gray-800"
+                      >
+                        {service}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-gray-400">None listed</p>
+                )}
+              </div>
               {lead.howYouFoundUs && (
-                <p className="mt-1 text-sm text-gray-600">
+                <p className="mt-2 text-sm text-gray-600">
                   <span className="font-medium text-gray-500">Found us: </span>
                   {lead.howYouFoundUs}
                 </p>

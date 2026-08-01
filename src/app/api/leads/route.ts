@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const source = searchParams.get("source");
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = {
+      // Hide legacy phone-call records from leads UI
+      source: { $ne: "phone" },
+    };
 
     if (search) {
       filter.$or = [
@@ -31,7 +34,7 @@ export async function GET(request: NextRequest) {
       filter.status = status;
     }
 
-    if (source) {
+    if (source && source !== "phone") {
       filter.source = source;
     }
 
