@@ -58,6 +58,28 @@ export interface Job {
   updatedAt: string;
 }
 
+export type LeadStatus = "new" | "contacted" | "converted" | "lost";
+export type LeadSource = "website" | "meta_ad" | "phone" | "other";
+
+export interface Lead {
+  _id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  town: string;
+  howYouFoundUs?: string;
+  services: string[];
+  message?: string;
+  photoUrls: string[];
+  squareFootage?: string;
+  status: LeadStatus;
+  source: LeadSource;
+  customer?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DashboardStats {
   todayJobs: Job[];
   tomorrowJobs: Job[];
