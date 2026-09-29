@@ -9,6 +9,7 @@ import {
   Settings,
   Droplets,
   Megaphone,
+  Scale,
 } from "lucide-react";
 import { useJobModals } from "@/contexts/JobModalContext";
 import DataSyncIndicator from "./DataSyncIndicator";
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/split", label: "Split", icon: Scale },
   { href: "/leads", label: "Leads", icon: Megaphone },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings },

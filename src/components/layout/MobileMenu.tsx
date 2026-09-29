@@ -11,6 +11,7 @@ import {
   Plus,
   Sun,
   Megaphone,
+  Scale,
 } from "lucide-react";
 import { useJobModals } from "@/contexts/JobModalContext";
 
@@ -18,6 +19,7 @@ const links = [
   { href: "/today", label: "View Today", icon: Sun },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/split", label: "Split", icon: Scale },
   { href: "/leads", label: "Leads", icon: Megaphone },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/dashboard", label: "Reports", icon: LayoutDashboard },

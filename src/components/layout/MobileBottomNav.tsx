@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Sun, Briefcase, Megaphone, BarChart3 } from "lucide-react";
+import { Calendar, Sun, Scale, Megaphone, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const navItems = [
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/today", label: "Today", icon: Sun },
-  { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/split", label: "Split", icon: Scale },
   { href: "/leads", label: "Leads", icon: Megaphone },
   { href: "/dashboard", label: "Reports", icon: BarChart3 },
 ];
