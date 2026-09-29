@@ -4,11 +4,12 @@ import { connectDB } from "@/lib/mongodb";
 import { requireApiAuth } from "@/lib/api-auth";
 import { apiError, apiSuccess } from "@/lib/api";
 import { parseJobDateOnly } from "@/lib/dates";
-import { EXPENSE_TYPES } from "@/lib/expenses";
+import { EXPENSE_PAYERS, EXPENSE_TYPES } from "@/lib/expenses";
 import Expense from "@/models/Expense";
 
 const expenseSchema = z.object({
   type: z.enum(EXPENSE_TYPES),
+  paidBy: z.enum(EXPENSE_PAYERS),
   amount: z.preprocess(
     (val) => {
       if (val === "" || val === undefined || val === null) return undefined;
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
     const expense = await Expense.create({
       type: parsed.data.type,
       amount: parsed.data.amount,
+      paidBy: parsed.data.paidBy,
       date: parseJobDateOnly(parsed.data.date),
       note: parsed.data.note || undefined,
     });

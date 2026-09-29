@@ -7,7 +7,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAppData } from "@/contexts/AppDataContext";
-import { EXPENSE_TYPES, type ExpenseType } from "@/lib/expenses";
+import { EXPENSE_PAYERS, EXPENSE_TYPES, type ExpensePayer, type ExpenseType } from "@/lib/expenses";
 import {
   computeSplit,
   getPresetRange,
@@ -27,6 +27,7 @@ export default function SplitPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expensesLoading, setExpensesLoading] = useState(true);
   const [type, setType] = useState<ExpenseType>("Gas");
+  const [paidBy, setPaidBy] = useState<ExpensePayer>("Justin");
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(initialRange.to);
   const [note, setNote] = useState("");
@@ -95,6 +96,7 @@ export default function SplitPage() {
         body: JSON.stringify({
           type,
           amount: parsedAmount,
+          paidBy,
           date: expenseDate,
           note: note.trim() || undefined,
         }),
@@ -133,7 +135,7 @@ export default function SplitPage() {
     <div className="mx-auto w-full max-w-2xl">
       <PageHeader
         title="Split"
-        description="Completed jobs minus expenses, split between the two owners."
+        description="Justin collects the checks. Profit and expenses are split in half, then Jared is paid back for what he covered."
       />
 
       <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
@@ -187,21 +189,47 @@ export default function SplitPage() {
         <div className="space-y-4">
           <section className="rounded-2xl border border-brand-blue bg-blue-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-blue">
-              Each owner&apos;s net
+              {summary.justinPaysJared >= 0 ? "Justin pays Jared" : "Jared pays Justin"}
             </p>
             <p className="mt-1 text-3xl font-bold tabular-nums text-brand-black">
-              {formatCurrency(summary.ownerNet)}
+              {formatCurrency(Math.abs(summary.justinPaysJared))}
             </p>
-            <p className="mt-1 text-sm text-gray-600">
-              Half of {formatCurrency(summary.net)} net
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              {summary.justinPaysJared >= 0 ? (
+                <>
+                  Each owner&apos;s half of the net is {formatCurrency(summary.ownerNet)}. Justin
+                  already holds the customer checks
+                  {summary.paidByJared > 0
+                    ? `, so he also pays Jared back the ${formatCurrency(summary.paidByJared)} Jared spent out of pocket.`
+                    : "."}
+                </>
+              ) : (
+                <>
+                  Each owner&apos;s half of the net is {formatCurrency(summary.ownerNet)}. Jared
+                  pays Justin so both end on that number after the expenses Justin covered.
+                </>
+              )}
             </p>
           </section>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <SummaryCard
+              label="Jared keeps"
+              value={formatCurrency(summary.ownerNet)}
+              detail={`Paid ${formatCurrency(summary.paidByJared)} in expenses`}
+            />
+            <SummaryCard
+              label="Justin keeps"
+              value={formatCurrency(summary.ownerNet)}
+              detail={`Collected ${formatCurrency(summary.gross)} and paid ${formatCurrency(summary.paidByJustin)}`}
+            />
+          </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SummaryCard
               label="Gross"
               value={formatCurrency(summary.gross)}
-              detail={`${summary.jobCount} completed job${summary.jobCount !== 1 ? "s" : ""}`}
+              detail={`${summary.jobCount} completed job${summary.jobCount !== 1 ? "s" : ""} collected by Justin`}
             />
             <SummaryCard
               label="Expenses"
@@ -211,29 +239,56 @@ export default function SplitPage() {
             <SummaryCard
               label="Net"
               value={formatCurrency(summary.net)}
-              detail="Gross minus expenses"
+              detail={`Each owner ${formatCurrency(summary.ownerNet)}`}
             />
           </div>
+
+          {summary.expenses.some((expense) => !expense.paidBy) && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Some older expenses don&apos;t say who paid. Delete and re-add them so the payout is right.
+            </p>
+          )}
 
           <section className="rounded-xl border border-brand-border bg-white">
             <div className="border-b border-brand-border px-4 py-3">
               <h2 className="text-base font-semibold text-brand-black">Add expense</h2>
             </div>
             <div className="space-y-3 p-4">
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-gray-700">Type</span>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as ExpenseType)}
-                  className="w-full rounded-lg border border-brand-border bg-white px-3 py-2.5 text-base text-gray-900"
-                >
-                  {EXPENSE_TYPES.map((expenseType) => (
-                    <option key={expenseType} value={expenseType}>
-                      {expenseType}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-gray-700">Type</span>
+                  <select
+                    value={type}
+                    onChange={(e) => setType(e.target.value as ExpenseType)}
+                    className="w-full rounded-lg border border-brand-border bg-white px-3 py-2.5 text-base text-gray-900"
+                  >
+                    {EXPENSE_TYPES.map((expenseType) => (
+                      <option key={expenseType} value={expenseType}>
+                        {expenseType}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div>
+                  <span className="mb-1.5 block text-sm font-medium text-gray-700">Paid by</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {EXPENSE_PAYERS.map((payer) => (
+                      <button
+                        key={payer}
+                        type="button"
+                        onClick={() => setPaidBy(payer)}
+                        className={`min-h-12 rounded-lg border text-sm font-semibold ${
+                          paidBy === payer
+                            ? "border-brand-blue bg-blue-50 text-brand-blue"
+                            : "border-brand-border bg-white text-gray-700"
+                        }`}
+                      >
+                        {payer}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input
                   label="Amount"
@@ -288,6 +343,9 @@ export default function SplitPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-brand-black">{expense.type}</p>
+                        <span className="rounded-full bg-brand-gray px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                          {expense.paidBy ?? "Unassigned"}
+                        </span>
                         <span className="text-xs text-gray-500">{formatDate(expense.date)}</span>
                       </div>
                       {expense.note && (

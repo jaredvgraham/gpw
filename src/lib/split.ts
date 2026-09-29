@@ -62,8 +62,12 @@ export interface SplitSummary {
   gross: number;
   expensesTotal: number;
   ownerExpenses: number;
+  paidByJared: number;
+  paidByJustin: number;
   net: number;
   ownerNet: number;
+  /** Positive means Justin pays Jared. Negative means Jared pays Justin. */
+  justinPaysJared: number;
   jobs: Job[];
   expenses: Expense[];
 }
@@ -87,15 +91,30 @@ export function computeSplit(
 
   const gross = completed.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
   const expensesTotal = rangedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const paidByJared = rangedExpenses
+    .filter((expense) => expense.paidBy === "Jared")
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  const paidByJustin = rangedExpenses
+    .filter((expense) => expense.paidBy === "Justin")
+    .reduce((sum, expense) => sum + expense.amount, 0);
   const net = gross - expensesTotal;
+  const ownerNet = net / 2;
+
+  // Justin collects every customer check. Net is already after every expense,
+  // so each owner is owed half of that. Jared's expenses came out of his own
+  // pocket and still have to be paid back on top of his half.
+  const justinPaysJared = ownerNet + paidByJared;
 
   return {
     jobCount: completed.length,
     gross,
     expensesTotal,
     ownerExpenses: expensesTotal / 2,
+    paidByJared,
+    paidByJustin,
     net,
-    ownerNet: net / 2,
+    ownerNet,
+    justinPaysJared,
     jobs: completed,
     expenses: rangedExpenses,
   };

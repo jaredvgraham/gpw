@@ -1,5 +1,5 @@
 import type { JobStatus } from "@/lib/constants";
-import type { ExpenseType } from "@/lib/expenses";
+import type { ExpensePayer, ExpenseType } from "@/lib/expenses";
 
 export interface Customer {
   _id: string;
@@ -85,6 +85,7 @@ export interface Expense {
   _id: string;
   type: ExpenseType;
   amount: number;
+  paidBy?: ExpensePayer;
   date: string;
   note?: string;
   createdAt: string;
