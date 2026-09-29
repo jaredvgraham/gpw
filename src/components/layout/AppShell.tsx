@@ -11,7 +11,7 @@ import DataSyncIndicator from "./DataSyncIndicator";
 import { JobModalProvider } from "@/contexts/JobModalContext";
 import { AppDataProvider } from "@/contexts/AppDataContext";
 
-const BOTTOM_NAV_PATHS = ["/calendar", "/today", "/jobs", "/customers", "/dashboard"];
+const BOTTOM_NAV_PATHS = ["/calendar", "/today", "/jobs", "/leads", "/dashboard"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
