@@ -4,99 +4,132 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import listPlugin from "@fullcalendar/list";
-import multiMonthPlugin from "@fullcalendar/multimonth";
 import interactionPlugin from "@fullcalendar/interaction";
 import type {
   EventClickArg,
   DateSelectArg,
   EventContentArg,
   DatesSetArg,
-  DayCellContentArg,
-  DayCellMountArg,
+  DayHeaderContentArg,
   EventMountArg,
 } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
-import type { Job } from "@/types";
-import { STATUS_COLORS } from "@/lib/constants";
 import {
-  jobToCalendarEvent,
-  formatCurrency,
-  getJobAddress,
-  formatTime,
-} from "@/lib/utils";
-import { getJobHouseholdTitle, getJobHouseholdEventTitle } from "@/lib/household-display";
-import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
-import { getJobDateOnly } from "@/lib/dates";
+  addDays,
+  addMonths,
+  addYears,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  isSameWeek,
+  isSameYear,
+  startOfWeek,
+} from "date-fns";
+import type { Job } from "@/types";
+import { jobToCalendarEvent, formatCurrency } from "@/lib/utils";
+import { getJobHouseholdTitle } from "@/lib/household-display";
 import JobDetailsModal from "@/components/jobs/JobDetailsModal";
 import MobileDaySheet from "@/components/calendar/MobileDaySheet";
 import MobileCalendarView from "@/components/calendar/mobile/MobileCalendarView";
+import DesktopCalendarChrome, { type CalendarStat } from "@/components/calendar/desktop/DesktopCalendarChrome";
+import DesktopMonthBoard from "@/components/calendar/desktop/DesktopMonthBoard";
+import DesktopYearBoard from "@/components/calendar/desktop/DesktopYearBoard";
+import DesktopDayBoard from "@/components/calendar/desktop/DesktopDayBoard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format } from "date-fns";
+import {
+  bookedTotal,
+  dueTotal,
+  formatTimeRange,
+  jobServiceLabel,
+  jobStatusMark,
+  jobTown,
+  jobsBetween,
+  STATUS_SURFACE,
+  toIsoDate,
+  type DesktopView,
+  viewInterval,
+  yearDaySignal,
+} from "@/components/calendar/desktop/model";
 
-/** Day = agenda list, Week = time grid, Month = month grid */
-type CalendarView = "listDay" | "timeGridWeek" | "dayGridMonth";
-
-const VIEW_BUTTONS: { view: CalendarView; label: string }[] = [
-  { view: "listDay", label: "Day" },
-  { view: "timeGridWeek", label: "Week" },
-  { view: "dayGridMonth", label: "Month" },
-];
-
-const MONTH_JOB_EVENT_BG = "rgba(251, 146, 60, 0.45)";
-const MONTH_JOB_EVENT_BORDER = "rgba(234, 88, 12, 0.6)";
-const MONTH_JOB_EVENT_TEXT = "#7c2d12";
-
-type MonthTitleArg = { date: { marker: Date } };
-
-function abbreviatedMonthTitle(arg: MonthTitleArg) {
-  return format(arg.date.marker, "MMM yyyy");
+function paintJobEvent(el: HTMLElement, status: keyof typeof STATUS_SURFACE | undefined) {
+  const surface = (status && STATUS_SURFACE[status]) || STATUS_SURFACE.Scheduled;
+  el.style.backgroundColor = surface.bg;
+  el.style.borderColor = surface.border;
+  el.style.borderLeftColor = surface.accent;
+  el.style.color = surface.ink;
+  el.style.setProperty("--gpw-accent", surface.accent);
+  el.style.setProperty("--gpw-ink", surface.ink);
+  el.style.setProperty("--gpw-muted", surface.muted);
 }
 
-/** Abbreviated month on the 1st (e.g. "Jul 1"); day number only otherwise. */
-function renderMonthDayCell(arg: DayCellContentArg) {
-  const date = arg.date;
-  if (arg.isMonthStart || date.getDate() === 1) {
-    return format(date, "MMM d");
+function headingFor(view: DesktopView, cursor: Date) {
+  if (view === "dayGridMonth") {
+    return { primary: format(cursor, "MMMM"), secondary: format(cursor, "yyyy") };
   }
-  return format(date, "d");
+  if (view === "multiMonthYear") {
+    return { primary: format(cursor, "yyyy") };
+  }
+  if (view === "listDay") {
+    return { primary: format(cursor, "MMMM d"), secondary: format(cursor, "EEEE") };
+  }
+  const start = startOfWeek(cursor, { weekStartsOn: 0 });
+  const end = endOfWeek(cursor, { weekStartsOn: 0 });
+  if (start.getMonth() === end.getMonth()) {
+    return { primary: `${format(start, "MMMM d")}–${format(end, "d")}`, secondary: format(start, "yyyy") };
+  }
+  return {
+    primary: `${format(start, "MMM d")} – ${format(end, "MMM d")}`,
+    secondary: format(end, "yyyy"),
+  };
 }
 
-function formatCalendarTitle(viewType: CalendarView, info: DatesSetArg) {
-  const start = info.view.currentStart;
-  if (viewType === "dayGridMonth") {
-    return format(start, "MMM yyyy");
+function buildStats(jobs: Job[]): CalendarStat[] {
+  if (jobs.length === 0) return [];
+  const done = jobs.filter((job) => job.status === "Completed").length;
+  const follow = jobs.filter((job) => job.status === "Needs Follow-Up").length;
+  const cancelled = jobs.filter((job) => job.status === "Cancelled").length;
+  const due = dueTotal(jobs);
+  const stats: CalendarStat[] = [
+    { value: String(jobs.length), label: jobs.length === 1 ? "job" : "jobs" },
+    { value: formatCurrency(bookedTotal(jobs)), label: "booked" },
+  ];
+  if (done > 0) stats.push({ value: String(done), label: "done", tone: "good" });
+  if (follow > 0) {
+    stats.push({ value: String(follow), label: follow === 1 ? "follow up" : "follow ups", tone: "alert" });
   }
-  if (viewType === "listDay") {
-    return format(start, "EEE, MMM d, yyyy");
-  }
-  if (viewType === "timeGridWeek") {
-    const end = new Date(info.end);
-    end.setMilliseconds(end.getMilliseconds() - 1);
-    if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
-      return `${format(start, "MMM d")} – ${format(end, "d, yyyy")}`;
-    }
-    if (start.getFullYear() === end.getFullYear()) {
-      return `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
-    }
-    return `${format(start, "MMM d, yyyy")} – ${format(end, "MMM d, yyyy")}`;
-  }
-  return info.view.title;
+  if (due > 0) stats.push({ value: formatCurrency(due), label: "due", tone: "alert" });
+  if (cancelled > 0) stats.push({ value: String(cancelled), label: "cancelled", tone: "muted" });
+  return stats;
 }
 
-function abbreviateMultiMonthTitles(container: Element | null) {
-  if (!container) return;
-  container.querySelectorAll<HTMLElement>(".fc-multimonth-month[data-date]").forEach((el) => {
-    const iso = el.getAttribute("data-date");
-    const titleEl = el.querySelector<HTMLElement>(".fc-multimonth-title");
-    if (!iso || !titleEl) return;
-    const [year, month] = iso.split("-").map(Number);
-    titleEl.textContent = format(new Date(year, month - 1, 1), "MMM yyyy");
-  });
+function WeekDayHeader({ arg, jobs }: { arg: DayHeaderContentArg; jobs: Job[] }) {
+  const dayJobs = jobsBetween(jobs, arg.date, arg.date);
+  const total = bookedTotal(dayJobs);
+  const signal = yearDaySignal(dayJobs);
+  return (
+    <div className="flex flex-col items-center px-1 py-2">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+        {format(arg.date, "EEE")}
+      </span>
+      <span
+        className={`mt-1 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold tabular-nums ${
+          arg.isToday ? "bg-brand-blue text-white" : "text-brand-black"
+        }`}
+      >
+        {format(arg.date, "d")}
+      </span>
+      <span
+        className="mt-1 h-4 text-[11px] font-semibold tabular-nums"
+        style={{ color: signal ? STATUS_SURFACE[signal].muted : undefined }}
+      >
+        {total > 0 ? formatCurrency(total) : ""}
+      </span>
+    </div>
+  );
 }
 
 export default function JobCalendar() {
@@ -104,92 +137,29 @@ export default function JobCalendar() {
   const { openNewJob } = useJobModals();
   const { jobs, jobsLoading: loading } = useAppData();
   const calendarRef = useRef<FullCalendar>(null);
-  const calendarContainerRef = useRef<HTMLDivElement>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [currentTitle, setCurrentTitle] = useState("");
-  const [currentView, setCurrentView] = useState<CalendarView>("dayGridMonth");
+  const [currentView, setCurrentView] = useState<DesktopView>("dayGridMonth");
+  const [cursor, setCursor] = useState(() => new Date());
   const [daySheetDate, setDaySheetDate] = useState<Date | null>(null);
   const [daySheetOpen, setDaySheetOpen] = useState(false);
-  const [monthPicker, setMonthPicker] = useState(format(new Date(), "yyyy-MM"));
-  const touchStartX = useRef(0);
-  const openDayViewRef = useRef<(date: Date) => void>(() => {});
 
-  function openDayView(date: Date) {
-    setDaySheetDate(date);
-    setDaySheetOpen(true);
-  }
-
-  openDayViewRef.current = openDayView;
-
-  const handleMonthDayCellDidMount = useCallback((arg: DayCellMountArg) => {
-    if (arg.view.type !== "dayGridMonth") return;
-
-    const frame = arg.el.querySelector(".fc-daygrid-day-frame") as HTMLElement | null;
-    if (!frame) return;
-
-    if (isMobile) {
-      frame.classList.add("gpw-mobile-day-cell");
-
-      if (!frame.dataset.gpwTapBound) {
-        frame.dataset.gpwTapBound = "true";
-        frame.addEventListener("click", (e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest(".fc-event") || target.closest(".fc-daygrid-more-link")) return;
-          e.preventDefault();
-          e.stopPropagation();
-          openDayViewRef.current(arg.date);
-        });
-      }
-      return;
-    }
-
-    if (frame.querySelector("[data-gpw-view-day]")) return;
-
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.setAttribute("data-gpw-view-day", "true");
-    btn.className = "gpw-view-day-btn";
-    btn.textContent = "View Day";
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openDayViewRef.current(arg.date);
-    });
-    frame.appendChild(btn);
-  }, [isMobile]);
-
-  const handleMonthDayCellWillUnmount = useCallback((arg: DayCellMountArg) => {
-    arg.el.querySelector("[data-gpw-view-day]")?.remove();
-    arg.el.querySelector("[data-gpw-job-count]")?.remove();
-    const frame = arg.el.querySelector(".fc-daygrid-day-frame") as HTMLElement | null;
-    if (frame) delete frame.dataset.gpwTapBound;
+  const openJob = useCallback((job: Job) => {
+    setSelectedJob(job);
+    setModalOpen(true);
   }, []);
 
-  const handleMonthEventDidMount = useCallback((info: EventMountArg) => {
-    if (info.view.type !== "dayGridMonth") return;
+  const openDayView = useCallback((date: Date) => {
+    setDaySheetDate(date);
+    setDaySheetOpen(true);
+  }, []);
 
-    info.el.classList.add("gpw-month-job-event");
-    if (isMobile) {
-      info.el.classList.add("gpw-month-job-dot-event");
-      const status = (info.event.extendedProps.job as Job | undefined)?.status;
-      if (status) {
-        info.el.style.backgroundColor = STATUS_COLORS[status];
-        info.el.style.borderColor = STATUS_COLORS[status];
-      }
-      return;
-    }
-
-    info.el.style.backgroundColor = MONTH_JOB_EVENT_BG;
-    info.el.style.borderColor = MONTH_JOB_EVENT_BORDER;
-    info.el.style.borderWidth = "1px";
-    info.el.style.borderStyle = "solid";
-    info.el.style.color = MONTH_JOB_EVENT_TEXT;
-
-    info.el.querySelectorAll<HTMLElement>(".fc-event-main, .fc-event-main-frame").forEach((el) => {
-      el.style.color = MONTH_JOB_EVENT_TEXT;
-    });
-  }, [isMobile]);
+  const openNewJobModal = useCallback(
+    (jobDate: string, startTime: string, endTime: string) => {
+      openNewJob({ jobDate, startTime, endTime });
+    },
+    [openNewJob]
+  );
 
   useEffect(() => {
     setSelectedJob((current) =>
@@ -198,79 +168,64 @@ export default function JobCalendar() {
   }, [jobs]);
 
   useEffect(() => {
-    if (currentView !== "dayGridMonth") return;
-    const frame = requestAnimationFrame(() => {
-      abbreviateMultiMonthTitles(calendarContainerRef.current);
-      if (!isMobile) return;
-      const container = calendarContainerRef.current;
-      if (!container) return;
-      container.querySelectorAll<HTMLElement>(".fc-daygrid-day[data-date]").forEach((cell) => {
-        const iso = cell.getAttribute("data-date");
-        if (!iso) return;
-        const dayJobs = jobs.filter((job) => getJobDateOnly(job.jobDate) === iso);
-        const top = cell.querySelector(".fc-daygrid-day-top");
-        if (!top) return;
-        let count = top.querySelector("[data-gpw-job-count]") as HTMLElement | null;
-        if (dayJobs.length === 0) {
-          count?.remove();
-          return;
-        }
-        if (!count) {
-          count = document.createElement("span");
-          count.setAttribute("data-gpw-job-count", "true");
-          count.className = "gpw-day-job-count";
-          top.appendChild(count);
-        }
-        count.textContent = String(dayJobs.length);
+    if (currentView !== "timeGridWeek") return;
+    const api = calendarRef.current?.getApi();
+    if (!api) return;
+    if (!isSameDay(api.getDate(), cursor)) api.gotoDate(cursor);
+  }, [currentView, cursor]);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (modalOpen || daySheetOpen) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) {
+        return;
+      }
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      if (currentView === "timeGridWeek") {
+        const api = calendarRef.current?.getApi();
+        if (direction < 0) api?.prev();
+        else api?.next();
+        return;
+      }
+      setCursor((current) => {
+        if (currentView === "dayGridMonth") return addMonths(current, direction);
+        if (currentView === "multiMonthYear") return addYears(current, direction);
+        return addDays(current, direction);
       });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [currentView, currentTitle, loading, jobs, isMobile]);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [currentView, modalOpen, daySheetOpen]);
 
   const events = jobs.map((job) => {
     const event = jobToCalendarEvent(job);
-    const address = getJobAddress(job);
-    const services = job.services
-      .map((s) => (s.name === "Other" && s.customServiceName ? s.customServiceName : s.name))
-      .join(", ");
-
+    const surface = STATUS_SURFACE[job.status] ?? STATUS_SURFACE.Scheduled;
     return {
       ...event,
-      title: getJobHouseholdEventTitle(job, jobs, [address, services].filter(Boolean) as string[]),
-      backgroundColor: STATUS_COLORS[job.status],
-      borderColor: STATUS_COLORS[job.status],
-      extendedProps: { job, services, address },
+      title: getJobHouseholdTitle(job, jobs),
+      backgroundColor: surface.bg,
+      borderColor: surface.border,
+      extendedProps: { job },
     };
   });
 
   function handleEventClick(info: EventClickArg) {
     info.jsEvent.preventDefault();
-    const job = jobs.find((j) => j._id === info.event.id);
-    if (job) {
-      setSelectedJob(job);
-      setModalOpen(true);
-    }
-  }
-
-  function openNewJobModal(jobDate: string, startTime: string, endTime: string) {
-    openNewJob({ jobDate, startTime, endTime });
+    const job = jobs.find((item) => item._id === info.event.id);
+    if (job) openJob(job);
   }
 
   function handleDateSelect(info: DateSelectArg) {
     if (info.view.type !== "timeGridWeek") return;
-
     calendarRef.current?.getApi().unselect();
-
-    openNewJobModal(
-      format(info.start, "yyyy-MM-dd"),
-      format(info.start, "HH:mm"),
-      format(info.end, "HH:mm")
-    );
+    openNewJobModal(format(info.start, "yyyy-MM-dd"), format(info.start, "HH:mm"), format(info.end, "HH:mm"));
   }
 
   function handleDateClick(info: DateClickArg) {
     if (info.view.type !== "timeGridWeek") return;
-
     const start = info.date;
     const end = new Date(start);
     end.setHours(end.getHours() + 2);
@@ -278,116 +233,72 @@ export default function JobCalendar() {
   }
 
   function goToday() {
-    calendarRef.current?.getApi().today();
+    const today = new Date();
+    setCursor(today);
+    if (currentView === "timeGridWeek") calendarRef.current?.getApi().today();
   }
 
-  function goPrev() {
-    const api = calendarRef.current?.getApi();
-    if (!api) return;
-    if (api.view.type === "dayGridMonth") {
-      api.incrementDate({ months: -1 });
-    } else {
-      api.prev();
+  function shift(direction: number) {
+    if (currentView === "timeGridWeek") {
+      const api = calendarRef.current?.getApi();
+      if (direction < 0) api?.prev();
+      else api?.next();
+      return;
     }
+    setCursor((current) => {
+      if (currentView === "dayGridMonth") return addMonths(current, direction);
+      if (currentView === "multiMonthYear") return addYears(current, direction);
+      return addDays(current, direction);
+    });
   }
 
-  function goNext() {
-    const api = calendarRef.current?.getApi();
-    if (!api) return;
-    if (api.view.type === "dayGridMonth") {
-      api.incrementDate({ months: 1 });
-    } else {
-      api.next();
-    }
+  function jumpToMonth(value: string) {
+    const [year, month] = value.split("-").map(Number);
+    if (!year || !month) return;
+    const day = Math.min(cursor.getDate(), new Date(year, month, 0).getDate());
+    const next = new Date(year, month - 1, day);
+    setCursor(next);
+    if (currentView === "timeGridWeek") calendarRef.current?.getApi().gotoDate(next);
   }
 
-  function goToMonth(monthValue: string) {
-    const [year, month] = monthValue.split("-").map(Number);
-    calendarRef.current?.getApi().gotoDate(new Date(year, month - 1, 1));
-  }
-
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (currentView !== "dayGridMonth") return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(diff) < 60) return;
-    if (diff > 0) goPrev();
-    else goNext();
-  }
-
-  function changeView(view: CalendarView) {
-    setCurrentView(view);
-    calendarRef.current?.getApi().changeView(view);
+  function jumpToDate(value: string) {
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return;
+    setCursor(new Date(year, month - 1, day));
   }
 
   function handleDatesSet(info: DatesSetArg) {
-    const viewType = info.view.type as CalendarView;
-    setCurrentTitle(formatCalendarTitle(viewType, info));
-    setCurrentView(viewType);
-    if (viewType === "dayGridMonth") {
-      setMonthPicker(format(info.view.currentStart, "yyyy-MM"));
-      requestAnimationFrame(() => {
-        abbreviateMultiMonthTitles(calendarContainerRef.current);
-      });
-    }
+    if (info.view.type !== "timeGridWeek") return;
+    const next = info.view.calendar.getDate();
+    setCursor((current) => (isSameDay(current, next) ? current : next));
   }
+
+  const handleEventDidMount = useCallback((info: EventMountArg) => {
+    const job = info.event.extendedProps.job as Job | undefined;
+    paintJobEvent(info.el, job?.status);
+    info.el.classList.add("gpw-week-job-event");
+  }, []);
 
   function renderEventContent(arg: EventContentArg) {
     const job = arg.event.extendedProps.job as Job | undefined;
     if (!job) return null;
-
-    const address = getJobAddress(job);
-    const viewType = arg.view.type;
-    const isList = viewType.startsWith("list");
-    const isMonth = viewType === "dayGridMonth";
-
-    if (isList) {
-      return (
-        <div className="flex w-full items-start gap-3 py-1">
-          <div
-            className="mt-1 h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: STATUS_COLORS[job.status] }}
-          />
-          <div className="min-w-0 flex-1">
-            <JobCustomerHeader job={job} compact showMembers={false} />
-            {address && <p className="text-sm text-gray-600 mt-0.5">{address}</p>}
-            <p className="text-xs text-gray-500 mt-1">
-              {formatTime(job.startTime)} – {formatTime(job.endTime)}
-              {job.finalPrice !== undefined && ` · ${formatCurrency(job.finalPrice)}`}
-              {job.paid && " · Paid"}
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    if (isMonth && isMobile) {
-      return (
-        <span
-          className="gpw-job-dot"
-          style={{ backgroundColor: STATUS_COLORS[job.status] }}
-          title={getJobHouseholdTitle(job, jobs)}
-          aria-label={getJobHouseholdTitle(job, jobs)}
-        />
-      );
-    }
-
-    if (isMonth) {
-      return (
-        <div className="fc-event-main-frame px-1 py-0.5 leading-tight overflow-hidden text-[#7c2d12]">
-          <div className="font-semibold truncate text-[11px]">{getJobHouseholdTitle(job, jobs)}</div>
-        </div>
-      );
-    }
-
+    const name = getJobHouseholdTitle(job, jobs);
+    const services = jobServiceLabel(job);
+    const town = jobTown(job);
+    const mark = jobStatusMark(job);
+    const price = job.finalPrice !== undefined ? formatCurrency(job.finalPrice) : "";
     return (
-      <div className="fc-event-main-frame px-1 py-0.5 leading-tight overflow-hidden text-[#7c2d12]">
-        <div className="font-semibold truncate text-[11px]">{getJobHouseholdTitle(job, jobs)}</div>
-        {address && <div className="truncate text-[10px] opacity-90">{address}</div>}
-        <div className="truncate text-[10px] opacity-90">{arg.timeText}</div>
+      <div className="gpw-week-card">
+        <div className="gpw-week-name">{name}</div>
+        {services ? <div className="gpw-week-services">{services}</div> : null}
+        <div className="gpw-week-time">{formatTimeRange(job.startTime, job.endTime)}</div>
+        {town ? <div className="gpw-week-line">{town}</div> : null}
+        {price || mark ? (
+          <div className="gpw-week-price">
+            {price}
+            {mark ? ` · ${mark.label}` : ""}
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -400,200 +311,121 @@ export default function JobCalendar() {
     );
   }
 
+  const today = new Date();
+  const todayDisabled =
+    currentView === "dayGridMonth"
+      ? isSameMonth(cursor, today)
+      : currentView === "multiMonthYear"
+        ? isSameYear(cursor, today)
+        : currentView === "timeGridWeek"
+          ? isSameWeek(cursor, today, { weekStartsOn: 0 })
+          : isSameDay(cursor, today);
+  const heading = headingFor(currentView, cursor);
+  const interval = viewInterval(currentView, cursor);
+  const stats = buildStats(jobsBetween(jobs, interval.start, interval.end));
+  const prevLabel =
+    currentView === "dayGridMonth" ? "Previous month" : currentView === "multiMonthYear" ? "Previous year" : currentView === "timeGridWeek" ? "Previous week" : "Previous day";
+  const nextLabel =
+    currentView === "dayGridMonth" ? "Next month" : currentView === "multiMonthYear" ? "Next year" : currentView === "timeGridWeek" ? "Next week" : "Next day";
+
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className={`shrink-0 mb-2 ${isMobile ? "space-y-2" : "space-y-3 mb-3"}`}>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center rounded-xl border border-brand-border bg-white overflow-hidden shrink-0">
-            <button
-              type="button"
-              onClick={goPrev}
-              className={`${isMobile ? "p-2.5" : "p-3"} active:bg-brand-gray transition-colors`}
-              aria-label={currentView === "dayGridMonth" ? "Previous month" : "Previous"}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={goToday}
-              className={`${isMobile ? "px-3 py-2.5" : "px-4 py-3"} text-sm font-semibold border-x border-brand-border active:bg-brand-gray transition-colors`}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              className={`${isMobile ? "p-2.5" : "p-3"} active:bg-brand-gray transition-colors`}
-              aria-label={currentView === "dayGridMonth" ? "Next month" : "Next"}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <DesktopCalendarChrome
+        primary={heading.primary}
+        secondary={heading.secondary}
+        stats={stats}
+        view={currentView}
+        onView={setCurrentView}
+        onPrev={() => shift(-1)}
+        onNext={() => shift(1)}
+        onToday={goToday}
+        todayDisabled={todayDisabled}
+        prevLabel={prevLabel}
+        nextLabel={nextLabel}
+        jump={
+          currentView === "listDay"
+            ? { kind: "date", value: toIsoDate(cursor), label: "Jump to a day", onChange: jumpToDate }
+            : currentView === "multiMonthYear"
+              ? undefined
+              : { kind: "month", value: format(cursor, "yyyy-MM"), label: "Jump to a month", onChange: jumpToMonth }
+        }
+      />
 
-          {currentView === "dayGridMonth" && (
-            <label className="relative inline-flex items-center rounded-xl border border-brand-border bg-white px-3 py-2.5 text-sm font-semibold text-brand-black shrink-0 cursor-pointer">
-              <span>{format(new Date(`${monthPicker}-01`), "MMM yyyy")}</span>
-              <input
-                type="month"
-                value={monthPicker}
-                onChange={(e) => {
-                  setMonthPicker(e.target.value);
-                  goToMonth(e.target.value);
-                }}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                aria-label="Jump to month"
-              />
-            </label>
-          )}
-        </div>
-
-        {!(isMobile && currentView === "dayGridMonth") && (
-          <h2 className="text-base md:text-xl font-bold text-brand-black leading-tight">
-            {currentTitle}
-          </h2>
-        )}
-
-        <div className={`grid grid-cols-3 gap-1.5 ${isMobile ? "" : ""}`}>
-          {VIEW_BUTTONS.map(({ view, label }) => (
-            <button
-              key={view}
-              type="button"
-              onClick={() => changeView(view)}
-              className={`rounded-xl text-sm font-semibold transition-colors ${
-                isMobile ? "py-2.5" : "py-3"
-              } ${
-                currentView === view
-                  ? "bg-brand-blue text-white"
-                  : "bg-white text-gray-600 border border-brand-border active:bg-brand-gray"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {currentView === "listDay" && (
-          <p className="text-xs text-center text-gray-500 bg-blue-50 rounded-lg py-2 px-3">
-            Daily job list — use arrows to change days
-          </p>
-        )}
-
-        {currentView === "dayGridMonth" && (
-          <p className="text-xs text-center text-gray-500 bg-blue-50 rounded-lg py-1.5 px-3">
-            {isMobile
-              ? "Swipe for months · tap a day for details · dots = job status"
-              : "Scroll through months · use View Day on a cell to see jobs or add one · tap a job for details"}
-          </p>
-        )}
-
-        {currentView === "timeGridWeek" && (
-          <p className="text-xs text-center text-gray-500 bg-blue-50 rounded-lg py-2 px-3">
-            {isMobile
-              ? "Tap a time slot or press and drag to schedule a job"
-              : "Click or drag a time slot to schedule a job"}
-          </p>
-        )}
-      </div>
-
-      {!(isMobile && currentView === "dayGridMonth") && (
-        <div className="flex flex-wrap gap-2 mb-2 shrink-0">
-          {Object.entries(STATUS_COLORS).map(([status, color]) => (
-            <div key={status} className="flex items-center gap-1 text-[10px] md:text-xs text-gray-600">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-              {status}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div
-        ref={calendarContainerRef}
-        className={`flex-1 min-h-0 rounded-xl bg-white border border-brand-border shadow-sm overflow-hidden calendar-container relative ${
-          isMobile ? "calendar-mobile" : ""
-        }`}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div className="relative min-h-0 flex-1">
         {loading && jobs.length === 0 && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
+          <div className="absolute inset-0 z-10 flex items-center justify-center">
             <LoadingSpinner />
           </div>
         )}
 
-        <FullCalendar
-          key={isMobile ? "cal-mobile" : "cal-desktop"}
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, multiMonthPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={false}
-          events={events}
-          eventClick={handleEventClick}
-          eventDidMount={handleMonthEventDidMount}
-          eventClassNames={(arg) =>
-            arg.view.type === "dayGridMonth" ? ["gpw-month-job-event"] : []
-          }
-          selectable
-          selectAllow={() => calendarRef.current?.getApi().view.type === "timeGridWeek"}
-          selectMirror
-          selectMinDistance={5}
-          selectLongPressDelay={isMobile ? 400 : 0}
-          unselectAuto
-          select={handleDateSelect}
-          dateClick={handleDateClick}
-          multiMonthTitleFormat={abbreviatedMonthTitle}
-          views={{
-            dayGridMonth: {
-              type: "multiMonth",
-              duration: { months: isMobile ? 1 : 12 },
-              multiMonthMaxColumns: 1,
-              multiMonthMinWidth: isMobile ? 280 : 320,
-              multiMonthTitleFormat: abbreviatedMonthTitle,
-              dayCellContent: renderMonthDayCell,
-              dayCellDidMount: handleMonthDayCellDidMount,
-              dayCellWillUnmount: handleMonthDayCellWillUnmount,
-              dayHeaderFormat: { weekday: "narrow" },
-              fixedWeekCount: isMobile,
-              showNonCurrentDates: true,
-            },
-            timeGridWeek: {
-              dayHeaderFormat: { weekday: "short", day: "numeric" },
-            },
-            listDay: {
-              listDayFormat: { weekday: "short", month: "short", day: "numeric" },
-            },
-          }}
-          slotMinTime="06:00:00"
-          slotMaxTime="20:00:00"
-          slotDuration="00:30:00"
-          slotLabelInterval="01:00:00"
-          scrollTime="07:00:00"
-          allDaySlot={false}
-          height="100%"
-          expandRows
-          nowIndicator
-          stickyHeaderDates
-          dayMaxEvents={isMobile ? 3 : 3}
-          dayMaxEventRows={isMobile ? 1 : undefined}
-          moreLinkClick="popover"
-          listDayFormat={{ weekday: "short", month: "short", day: "numeric" }}
-          listDaySideFormat={false}
-          noEventsContent="No jobs scheduled"
-          weekends
-          slotLabelFormat={{
-            hour: "numeric",
-            minute: "2-digit",
-            meridiem: "short",
-          }}
-          eventTimeFormat={{
-            hour: "numeric",
-            minute: "2-digit",
-            meridiem: "short",
-          }}
-          dayHeaderFormat={{ weekday: "short", day: "numeric" }}
-          timeZone="local"
-          datesSet={handleDatesSet}
-          eventContent={renderEventContent}
-        />
+        {currentView === "dayGridMonth" ? (
+          <DesktopMonthBoard
+            cursor={cursor}
+            jobs={jobs}
+            onOpenDay={openDayView}
+            onOpenJob={openJob}
+            onAddJob={openNewJobModal}
+          />
+        ) : null}
+
+        {currentView === "multiMonthYear" ? (
+          <DesktopYearBoard
+            cursor={cursor}
+            jobs={jobs}
+            onOpenDay={openDayView}
+            onOpenMonth={(date) => {
+              setCursor(date);
+              setCurrentView("dayGridMonth");
+            }}
+          />
+        ) : null}
+
+        {currentView === "listDay" ? (
+          <DesktopDayBoard cursor={cursor} jobs={jobs} onOpenJob={openJob} onAddJob={openNewJobModal} />
+        ) : null}
+
+        {currentView === "timeGridWeek" ? (
+          <div className="calendar-container h-full min-h-0 overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.04)] ring-1 ring-black/[0.06]">
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              initialView="timeGridWeek"
+              initialDate={cursor}
+              headerToolbar={false}
+              events={events}
+              eventClick={handleEventClick}
+              eventDidMount={handleEventDidMount}
+              selectable
+              selectMirror
+              selectMinDistance={5}
+              unselectAuto
+              select={handleDateSelect}
+              dateClick={handleDateClick}
+              navLinks
+              navLinkDayClick={(date) => {
+                setCursor(date);
+                setCurrentView("listDay");
+              }}
+              dayHeaderContent={(arg) => <WeekDayHeader arg={arg} jobs={jobs} />}
+              slotMinTime="06:00:00"
+              slotMaxTime="20:00:00"
+              slotDuration="00:30:00"
+              slotLabelInterval="01:00:00"
+              scrollTime="07:00:00"
+              allDaySlot={false}
+              height="100%"
+              expandRows
+              nowIndicator
+              stickyHeaderDates
+              weekends
+              slotLabelFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+              eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+              timeZone="local"
+              datesSet={handleDatesSet}
+              eventContent={renderEventContent}
+            />
+          </div>
+        ) : null}
       </div>
 
       <JobDetailsModal
@@ -614,8 +446,7 @@ export default function JobCalendar() {
         onClose={() => setDaySheetOpen(false)}
         onJobClick={(job) => {
           setDaySheetOpen(false);
-          setSelectedJob(job);
-          setModalOpen(true);
+          openJob(job);
         }}
         onAddJob={(jobDate, startTime, endTime) => {
           setDaySheetOpen(false);

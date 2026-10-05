@@ -52,9 +52,21 @@ export default function LoginForm() {
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-brand-gray px-4 py-8">
-      <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-white p-6 shadow-sm">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-blue text-white">
+      <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-brand-border bg-white shadow-sm md:grid md:max-w-3xl md:grid-cols-[1.1fr_0.9fr]">
+        <div className="hidden flex-col justify-between bg-brand-blue px-8 py-10 text-white md:flex">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15">
+            <Droplets className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold leading-tight">Graham Painting & Power Washing</p>
+            <p className="mt-3 text-sm text-blue-100">
+              Schedule jobs, run the day, and settle the owner split.
+            </p>
+          </div>
+        </div>
+        <div className="p-6 md:p-8">
+        <div className="mb-6 flex flex-col items-center text-center md:items-start md:text-left">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-blue text-white md:hidden">
             <Droplets className="h-6 w-6" />
           </div>
           <h1 className="text-lg font-bold text-brand-black">Graham Power Washing</h1>
@@ -83,6 +95,7 @@ export default function LoginForm() {
             {submitting ? "Signing in..." : "Continue"}
           </Button>
         </form>
+        </div>
       </div>
     </div>
   );

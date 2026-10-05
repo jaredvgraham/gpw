@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import JobCard from "@/components/jobs/JobCard";
+import JobTable from "@/components/jobs/JobTable";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import HouseholdPanel from "@/components/customers/HouseholdPanel";
 import type { Customer, Household, Job } from "@/types";
@@ -76,8 +77,8 @@ export default function CustomerDetailPage() {
         }
       />
 
-      <div className="rounded-xl bg-white border border-brand-border p-5 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+      <div className="mb-6 rounded-xl border border-brand-border bg-white p-5">
+        <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
           <div className="flex items-center gap-2 text-gray-600">
             <Phone className="h-4 w-4 text-gray-400" />
             <a href={`tel:${customer.phone}`} className="text-brand-blue hover:underline">
@@ -121,11 +122,7 @@ export default function CustomerDetailPage() {
               {upcoming.length === 0 ? (
                 <p className="text-sm text-gray-500">No upcoming jobs.</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {upcoming.map((job) => (
-                    <JobCard key={job._id} job={job} />
-                  ))}
-                </div>
+                <JobList jobs={upcoming} />
               )}
             </div>
 
@@ -136,11 +133,7 @@ export default function CustomerDetailPage() {
               {past.length === 0 ? (
                 <p className="text-sm text-gray-500">No past jobs.</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {past.map((job) => (
-                    <JobCard key={job._id} job={job} />
-                  ))}
-                </div>
+                <JobList jobs={past} />
               )}
             </div>
           </div>
@@ -161,11 +154,7 @@ export default function CustomerDetailPage() {
                   <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
                     Upcoming ({householdUpcoming.length})
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {householdUpcoming.map((job) => (
-                      <JobCard key={job._id} job={job} />
-                    ))}
-                  </div>
+                  <JobList jobs={householdUpcoming} />
                 </div>
               )}
 
@@ -174,11 +163,7 @@ export default function CustomerDetailPage() {
                   <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
                     Past ({householdPast.length})
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {householdPast.map((job) => (
-                      <JobCard key={job._id} job={job} />
-                    ))}
-                  </div>
+                  <JobList jobs={householdPast} />
                 </div>
               )}
             </div>
@@ -186,5 +171,20 @@ export default function CustomerDetailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function JobList({ jobs }: { jobs: Job[] }) {
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {jobs.map((job) => (
+          <JobCard key={job._id} job={job} />
+        ))}
+      </div>
+      <div className="hidden md:block">
+        <JobTable jobs={jobs} />
+      </div>
+    </>
   );
 }

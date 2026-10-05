@@ -134,13 +134,14 @@ export default function SplitPage() {
   const justinPays = !summary || summary.justinPaysJared >= 0;
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-2xl overflow-x-hidden overscroll-x-none">
+    <div className="mx-auto w-full min-w-0 max-w-2xl overflow-x-hidden overscroll-x-none xl:max-w-none">
       <PageHeader
         title="Split"
         description="Completed job totals minus expenses, split in half."
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-5 xl:flex xl:items-end xl:justify-between xl:gap-6">
+      <div className="mb-4 flex flex-wrap gap-2 xl:mb-0">
         {SPLIT_PRESETS.map((option) => {
           const active = preset === option.id;
           return (
@@ -160,7 +161,7 @@ export default function SplitPage() {
         })}
       </div>
 
-      <div className="mb-5 grid min-w-0 grid-cols-2 gap-3">
+      <div className="grid min-w-0 grid-cols-2 gap-3 xl:w-80 xl:shrink-0">
         <div className="min-w-0">
           <Input
             label="From"
@@ -186,6 +187,7 @@ export default function SplitPage() {
           />
         </div>
       </div>
+      </div>
 
       {rangeInvalid ? (
         <p className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -196,8 +198,8 @@ export default function SplitPage() {
       ) : (
         <div className="space-y-4">
           <section className="overflow-hidden rounded-2xl border border-brand-border bg-white">
-            <div className="px-4 pb-4 pt-4">
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div className="px-4 pb-4 pt-4 xl:flex xl:items-center xl:justify-between xl:px-6 xl:py-5">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 xl:flex xl:gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                     Pays
@@ -216,12 +218,12 @@ export default function SplitPage() {
                   </p>
                 </div>
               </div>
-              <p className="mt-3 text-3xl font-bold tabular-nums text-brand-blue">
+              <p className="mt-3 text-3xl font-bold tabular-nums text-brand-blue xl:mt-0 xl:text-5xl">
                 {formatCurrency(Math.abs(summary.justinPaysJared))}
               </p>
             </div>
 
-            <div className="border-t border-brand-border px-4 py-3">
+            <div className="border-t border-brand-border px-4 py-3 xl:hidden">
               <AmountRow label="Job total" value={formatCurrency(summary.gross)} />
               <AmountRow
                 label="Expenses"
@@ -243,6 +245,23 @@ export default function SplitPage() {
               </p>
             </div>
 
+            <div className="hidden border-t border-brand-border xl:grid xl:grid-cols-4 xl:divide-x xl:divide-brand-border">
+              <SplitTile label="Job total" value={formatCurrency(summary.gross)} />
+              <SplitTile
+                label="Expenses"
+                sign="−"
+                value={formatCurrency(summary.expensesTotal)}
+                detail={`Jared paid ${formatCurrency(summary.paidByJared)}. Justin paid ${formatCurrency(summary.paidByJustin)}.`}
+              />
+              <SplitTile label="Net" sign="=" value={formatCurrency(summary.net)} />
+              <SplitTile
+                label="Each half"
+                value={formatCurrency(summary.ownerNet)}
+                detail={`${formatCurrency(summary.net)} ÷ 2`}
+              />
+            </div>
+
+            <div className="xl:grid xl:grid-cols-2 xl:divide-x xl:divide-brand-border">
             <PersonSplit
               name="Jared"
               shouldFinish={summary.ownerNet}
@@ -253,13 +272,15 @@ export default function SplitPage() {
               shouldFinish={summary.ownerNet}
               isAt={summary.gross - summary.paidByJustin}
             />
+            </div>
             <p className="border-t border-brand-border px-4 py-3 text-sm leading-relaxed text-gray-500">
               Expenses stay in the total above. This only moves each of them onto their half.
             </p>
           </section>
 
+          <div className="space-y-4 xl:grid xl:grid-cols-3 xl:items-start xl:gap-4 xl:space-y-0">
           {summary.expenses.some((expense) => !expense.paidBy) && (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 xl:col-span-3">
               Some older expenses don&apos;t say who paid. Delete and re-add them so the payout is right.
             </p>
           )}
@@ -416,6 +437,7 @@ export default function SplitPage() {
               </ul>
             )}
           </section>
+          </div>
         </div>
       )}
     </div>
@@ -439,6 +461,29 @@ function PersonSplit({
       <AmountRow label="Is at" value={formatCurrency(isAt)} />
       <AmountRow label="Should finish at" value={formatCurrency(shouldFinish)} />
       <AmountRow label="Difference" sign="=" value={formatCurrency(difference)} rule />
+    </div>
+  );
+}
+
+function SplitTile({
+  label,
+  value,
+  sign,
+  detail,
+}: {
+  label: string;
+  value: string;
+  sign?: string;
+  detail?: string;
+}) {
+  return (
+    <div className="px-5 py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums text-brand-black">
+        {sign && <span className="mr-1.5 text-base font-semibold text-gray-400">{sign}</span>}
+        {value}
+      </p>
+      {detail && <p className="mt-1 text-xs leading-relaxed text-gray-500">{detail}</p>}
     </div>
   );
 }

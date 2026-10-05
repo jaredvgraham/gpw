@@ -84,7 +84,7 @@ export default function SettingsPage() {
       />
 
       {showForm && (
-        <Card title={editingId ? "Edit Service" : "Add Service"} className="mb-6">
+        <Card title={editingId ? "Edit Service" : "Add Service"} className="mb-6 lg:max-w-3xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input label="Service Name" required {...register("name")} error={errors.name?.message} />
@@ -105,7 +105,7 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {services.map((service) => (
           <Card key={service._id}>
             <div className="flex items-start justify-between">

@@ -225,18 +225,18 @@ export default function JobForm({
         <div
           className={
             inModal
-              ? "space-y-8"
-              : "px-5 py-6 md:px-8 md:py-8 space-y-8"
+              ? "space-y-8 md:grid md:grid-cols-2 md:items-start md:gap-x-8 md:gap-y-6 md:space-y-0"
+              : "space-y-8 px-5 py-6 md:grid md:grid-cols-2 md:items-start md:gap-x-8 md:gap-y-6 md:space-y-0 md:px-8 md:py-8"
           }
         >
           {error && (
-            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-brand-red">
+            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-brand-red md:col-span-2">
               {error}
             </div>
           )}
 
           {/* When */}
-          <section>
+          <section className="md:col-span-2">
             <SectionLabel icon={Calendar}>When is the job?</SectionLabel>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input
@@ -295,7 +295,7 @@ export default function JobForm({
             </div>
           </section>
 
-          <hr className="border-brand-border" />
+          <hr className="border-brand-border md:hidden" />
 
           {/* Who */}
           <section>
@@ -327,7 +327,7 @@ export default function JobForm({
             </div>
           </section>
 
-          <hr className="border-brand-border" />
+          <hr className="border-brand-border md:hidden" />
 
           {/* Where */}
           <section>
@@ -351,10 +351,10 @@ export default function JobForm({
             </div>
           </section>
 
-          <hr className="border-brand-border" />
+          <hr className="border-brand-border md:hidden" />
 
           {/* Services */}
-          <section>
+          <section className="md:col-span-2">
             <SectionLabel icon={Wrench}>Services</SectionLabel>
             <p className="text-sm text-gray-500 -mt-2 mb-3">Select at least one service.</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -393,7 +393,7 @@ export default function JobForm({
             )}
           </section>
 
-          <hr className="border-brand-border" />
+          <hr className="border-brand-border md:hidden" />
 
           {/* Pricing */}
           <section>
@@ -433,7 +433,7 @@ export default function JobForm({
             </div>
           </section>
 
-          <hr className="border-brand-border" />
+          <hr className="border-brand-border md:hidden" />
 
           {/* Notes */}
           <section>

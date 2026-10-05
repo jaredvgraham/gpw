@@ -56,7 +56,7 @@ export default function CustomersPage() {
         description={`${customers.length} customer${customers.length !== 1 ? "s" : ""}`}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:max-w-3xl">
         <Input
           label="Search"
           placeholder="Name, phone, address..."
@@ -78,7 +78,8 @@ export default function CustomersPage() {
           <p className="text-gray-500">No customers found.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <>
+        <div className="grid grid-cols-1 gap-4 md:hidden">
           {customers.map((customer) => (
             <Link
               key={customer._id}
@@ -125,6 +126,42 @@ export default function CustomersPage() {
             </Link>
           ))}
         </div>
+        <div className="hidden overflow-hidden rounded-xl border border-brand-border bg-white md:block">
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 z-10 border-b border-brand-border bg-brand-gray text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-2.5 font-semibold">Customer</th>
+                <th className="px-4 py-2.5 font-semibold">Phone</th>
+                <th className="px-4 py-2.5 font-semibold">Email</th>
+                <th className="px-4 py-2.5 font-semibold">Address</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-border">
+              {customers.map((customer) => (
+                <tr key={customer._id} className="hover:bg-blue-50/40">
+                  <td className="px-4 py-3">
+                    <Link href={`/customers/${customer._id}`} className="flex items-center gap-2">
+                      <span className="font-semibold text-brand-black">{customer.name}</span>
+                      {(customer.householdMemberCount ?? 1) > 1 && (
+                        <HouseholdBadge
+                          label={`${customer.householdMemberCount} people`}
+                          memberCount={customer.householdMemberCount ?? 1}
+                          compact
+                        />
+                      )}
+                    </Link>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-700">{customer.phone}</td>
+                  <td className="px-4 py-3 text-gray-600">{customer.email || "—"}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {[customer.streetAddress, customer.city, customer.state].filter(Boolean).join(", ") || "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        </>
       )}
     </div>
   );

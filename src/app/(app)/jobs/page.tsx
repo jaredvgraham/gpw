@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import JobCard from "@/components/jobs/JobCard";
+import JobTable from "@/components/jobs/JobTable";
 import JobFiltersBar, { type JobFilters } from "@/components/jobs/JobFiltersBar";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAppData } from "@/contexts/AppDataContext";
@@ -60,11 +61,16 @@ export default function JobsPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredJobs.map((job) => (
-            <JobCard key={job._id} job={job} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {filteredJobs.map((job) => (
+              <JobCard key={job._id} job={job} />
+            ))}
+          </div>
+          <div className="hidden md:block">
+            <JobTable jobs={filteredJobs} />
+          </div>
+        </>
       )}
     </div>
   );

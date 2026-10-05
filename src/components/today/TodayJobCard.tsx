@@ -24,6 +24,7 @@ import {
   formatTime,
   getCustomerAddress,
   getJobAddress,
+  getJobDuration,
 } from "@/lib/utils";
 
 function getCustomer(job: Job): Customer | null {
@@ -86,6 +87,7 @@ interface TodayJobCardProps {
   index: number;
   isLast?: boolean;
   dateStr: string;
+  variant?: "route" | "board";
 }
 
 export default function TodayJobCard({
@@ -93,6 +95,7 @@ export default function TodayJobCard({
   index,
   isLast = false,
   dateStr,
+  variant = "route",
 }: TodayJobCardProps) {
   const [completing, setCompleting] = useState(false);
   const [updatingPaid, setUpdatingPaid] = useState(false);
@@ -190,6 +193,154 @@ export default function TodayJobCard({
     } finally {
       setUpdatingPaid(false);
     }
+  }
+
+  if (variant === "board") {
+    return (
+      <article
+        className={`grid grid-cols-[9.5rem_minmax(0,1.3fr)_minmax(12rem,16rem)_auto] items-center gap-4 border-b border-brand-border px-5 py-4 last:border-b-0 ${
+          status.highlight ? "bg-red-50/50" : "bg-white"
+        }`}
+      >
+        <div>
+          <p className="text-sm font-bold tabular-nums text-brand-black">
+            {formatTime(job.startTime)}
+          </p>
+          <p className="text-xs text-gray-500">{formatTime(job.endTime)}</p>
+          <p className="mt-1 text-xs text-gray-400">{getJobDuration(job.startTime, job.endTime)}</p>
+          <span
+            className="mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide text-white"
+            style={{ backgroundColor: status.color }}
+          >
+            {status.label}
+          </span>
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-blue text-[11px] font-bold text-white">
+              {index}
+            </span>
+            <JobCustomerHeader job={job} showMembers={false} />
+          </div>
+          {hasAddress && (
+            <p className="mt-1 truncate pl-8 text-sm text-gray-600">{address}</p>
+          )}
+          {serviceEntries.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1 pl-8">
+              {serviceEntries.map(({ label, serviceName }, serviceIndex) => (
+                <ServicePill
+                  key={`${job._id}-board-${serviceIndex}`}
+                  serviceName={serviceName}
+                  label={label}
+                  size="sm"
+                />
+              ))}
+            </div>
+          )}
+          {noteText && (
+            <p className="mt-1 truncate pl-8 text-xs text-gray-500">{noteText}</p>
+          )}
+        </div>
+
+        <div>
+          {editingPrice ? (
+            <div className="flex items-center gap-2">
+              <input
+                ref={priceInputRef}
+                type="text"
+                inputMode="decimal"
+                value={priceDraft}
+                onChange={(e) => setPriceDraft(e.target.value.replace(/[^\d.]/g, ""))}
+                onKeyDown={handlePriceKeyDown}
+                disabled={updatingPrice}
+                aria-label="Job total"
+                className="w-28 rounded-lg border border-brand-border px-2 py-1.5 text-sm font-semibold tabular-nums"
+              />
+              <button
+                type="button"
+                onClick={() => void savePrice()}
+                disabled={updatingPrice || priceDraft === ""}
+                className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={cancelEditPrice}
+                className="rounded-lg border border-brand-border px-2.5 py-1.5 text-xs font-semibold text-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={startEditPrice} className="text-left">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                {paid ? "Collected" : "Job total"}
+              </p>
+              <p className={`text-xl font-bold tabular-nums ${paid ? "text-green-700" : "text-brand-black"}`}>
+                {formatCurrency(finalPrice)}
+              </p>
+              <p className="text-xs text-gray-400">Click to edit</p>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleTogglePaid}
+            disabled={updatingPaid}
+            className={`mt-2 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
+              paid ? "border-green-300 bg-green-50 text-green-700" : "border-brand-border text-gray-600"
+            }`}
+          >
+            <Check className="h-3 w-3" strokeWidth={3} />
+            {paid ? "Paid" : "Mark paid"}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {customer?.phone && (
+            <a
+              href={`tel:${customer.phone}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-brand-border px-2.5 text-xs font-semibold text-gray-800 hover:bg-brand-gray"
+            >
+              <Phone className="h-3.5 w-3.5 text-brand-red" />
+              Call
+            </a>
+          )}
+          {customer?.phone && (
+            <a
+              href={smsUrl(customer.phone)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-brand-border px-2.5 text-xs font-semibold text-gray-800 hover:bg-brand-gray"
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-brand-blue" />
+              Text
+            </a>
+          )}
+          {hasAddress && (
+            <a
+              href={mapsUrl(address)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-brand-border px-2.5 text-xs font-semibold text-gray-800 hover:bg-brand-gray"
+            >
+              <Navigation className="h-3.5 w-3.5 text-brand-blue" />
+              Map
+            </a>
+          )}
+          {job.status !== "Completed" && job.status !== "Cancelled" && (
+            <button
+              type="button"
+              onClick={handleMarkComplete}
+              disabled={completing}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-red px-3 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60"
+            >
+              <Check className="h-3.5 w-3.5" strokeWidth={3} />
+              {completing ? "Saving…" : "Complete"}
+            </button>
+          )}
+        </div>
+      </article>
+    );
   }
 
   return (

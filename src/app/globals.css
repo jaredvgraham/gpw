@@ -31,7 +31,7 @@ body {
 /* FullCalendar — calendar-first styling */
 .calendar-container .fc {
   height: 100% !important;
-  --fc-border-color: #e5e7eb;
+  --fc-border-color: #eef0f3;
   --fc-button-bg-color: #1d4ed8;
   --fc-button-border-color: #1d4ed8;
   --fc-button-hover-bg-color: #1e40af;
@@ -47,15 +47,17 @@ body {
 }
 
 .calendar-container .fc .fc-scrollgrid {
+  border: none;
   border-radius: 0;
 }
 
 .calendar-container .fc .fc-col-header-cell {
-  background: #f9fafb;
-  padding: 8px 0;
+  background: #ffffff;
+  padding: 0;
   font-weight: 600;
   font-size: 0.8rem;
   color: #374151;
+  border-bottom: 1px solid #eef0f3;
 }
 
 .calendar-container .fc .fc-timegrid-slot-label {
@@ -64,15 +66,19 @@ body {
 }
 
 .calendar-container .fc .fc-timegrid-slot {
-  height: 2.5rem;
+  height: 3.5rem;
 }
 
 .calendar-container .fc .fc-timegrid-col.fc-day-today {
-  background: #eff6ff;
+  background: transparent;
 }
 
 .calendar-container .fc .fc-daygrid-day.fc-day-today {
-  background: #eff6ff;
+  background: transparent;
+}
+
+.calendar-container .fc .fc-col-header-cell.fc-day-today {
+  background: #ffffff;
 }
 
 .calendar-container .fc .fc-daygrid-day-number {
@@ -95,38 +101,202 @@ body {
 
 .calendar-container .fc .fc-event {
   cursor: pointer;
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  border-style: solid;
+  border-width: 1px;
+  border-left-width: 4px;
+  border-radius: 8px;
   font-size: 0.75rem;
-  min-height: 2.75rem;
-}
-
-.calendar-container .fc .fc-event:not(.gpw-month-job-event) {
-  border: none;
-}
-
-.calendar-container .fc .fc-event:hover {
-  filter: brightness(1.05);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-}
-
-/* Month grid — orange job chips so they stand apart from the blue View Day button */
-.calendar-container .fc-event.gpw-month-job-event {
-  background-color: rgba(251, 146, 60, 0.45) !important;
-  border: 1px solid rgba(234, 88, 12, 0.6) !important;
-  color: #7c2d12 !important;
   box-shadow: none;
 }
 
-.calendar-container .fc-event.gpw-month-job-event:hover {
-  background-color: rgba(251, 146, 60, 0.6) !important;
-  filter: none;
+.calendar-container .fc .fc-timegrid-event,
+.calendar-container .fc-event.gpw-week-job-event {
+  border-radius: 10px;
+  margin: 2px 4px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
 }
 
-.calendar-container .fc-event.gpw-month-job-event .fc-event-main,
-.calendar-container .fc-event.gpw-month-job-event .fc-event-title,
-.calendar-container .fc-event.gpw-month-job-event .fc-event-main-frame {
-  color: #7c2d12 !important;
+.calendar-container .fc .fc-timegrid-event .fc-event-main {
+  color: var(--gpw-ink, #1e3a8a);
+  padding: 0;
+}
+
+.calendar-container .fc .fc-timegrid-event:hover,
+.calendar-container .fc-event.gpw-month-job-event:hover {
+  filter: brightness(0.98);
+}
+
+.calendar-container .fc .fc-daygrid-event {
+  margin: 1px 2px 0;
+}
+
+.calendar-container .fc-event.gpw-month-job-event {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.calendar-container .gpw-week-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  height: 100%;
+  overflow: hidden;
+  padding: 7px 8px 6px 9px;
+}
+
+.calendar-container .gpw-week-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--gpw-ink, #1e3a8a);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.calendar-container .gpw-week-services {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--gpw-ink, #1e3a8a);
+  white-space: normal;
+}
+
+.calendar-container .gpw-week-time {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--gpw-muted, #1d4ed8);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.calendar-container .gpw-week-line,
+.calendar-container .gpw-week-price {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #4b5563;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.calendar-container .gpw-week-price {
+  margin-top: 2px;
+  font-weight: 600;
+  color: var(--gpw-ink, #1e3a8a);
+}
+
+.calendar-container .gpw-month-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  min-height: 18px;
+  padding: 1px 6px 1px 5px;
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--gpw-ink, #1e3a8a);
+}
+
+.calendar-container .gpw-month-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--gpw-accent, #2563eb);
+}
+
+.calendar-container .gpw-month-chip-time,
+.calendar-container .gpw-month-chip-detail,
+.calendar-container .gpw-month-chip-price {
+  display: none;
+}
+
+.calendar-container .gpw-month-chip-name {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.calendar-container .gpw-day-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px 7px;
+}
+
+.calendar-container .gpw-day-card-name,
+.calendar-container .gpw-day-card-time,
+.calendar-container .gpw-day-card-line,
+.calendar-container .gpw-day-card-price {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.calendar-container .gpw-day-card-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--gpw-ink, #1e3a8a);
+}
+
+.calendar-container .gpw-day-card-time {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--gpw-muted, #1d4ed8);
+}
+
+.calendar-container .gpw-day-card-line {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #4b5563;
+}
+
+.calendar-container .gpw-day-card-price {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--gpw-ink, #1e3a8a);
+}
+
+.calendar-container .fc-dayGridMonth-view .fc-col-header-cell {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.calendar-container .fc-dayGridMonth-view .fc-daygrid-day-frame {
+  min-height: 8.5rem;
+}
+
+.calendar-container .fc-dayGridMonth-view .fc-daygrid-day-number {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 8px 2px;
+}
+
+.calendar-container .fc-dayGridMonth-view .fc-daygrid-event-harness {
+  position: relative !important;
+  margin: 0 6px 6px;
+}
+
+.calendar-container .fc-dayGridMonth-view .fc-daygrid-day-events {
+  position: relative !important;
+  margin: 0 0 4px;
+}
+
+.calendar-container .fc-dayGridMonth-view .fc-event.gpw-month-job-event {
+  border-radius: 10px;
 }
 
 .calendar-container .fc .fc-highlight {
@@ -144,20 +314,124 @@ body {
   border-bottom-color: transparent;
 }
 
-.calendar-container .fc .fc-more-link {
-  color: #1d4ed8;
-  font-weight: 500;
-  font-size: 0.75rem;
+.calendar-container .fc .fc-more-link,
+.calendar-container .fc .fc-daygrid-more-link,
+.calendar-container .fc .fc-multimonth-multicol .fc-daygrid-more-link {
+  display: inline-flex;
+  float: none;
+  align-items: center;
+  margin: 1px 2px 0;
+  padding: 0 5px;
+  height: 16px;
+  border: none;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
 }
 
-.calendar-container .fc .fc-daygrid-more-link {
-  color: #1d4ed8;
+.calendar-container .fc .fc-daygrid-more-link:hover {
+  background: #e5e7eb;
+  color: #111827;
 }
 
 .calendar-container .fc .fc-popover {
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  width: 360px;
+  overflow: hidden;
   border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+}
+
+.calendar-container .fc .fc-popover .fc-daygrid-day-top,
+.calendar-container .fc .fc-popover .fc-daygrid-day-number,
+.calendar-container .fc .fc-more-popover-misc {
+  display: none !important;
+}
+
+.calendar-container .fc .fc-popover .fc-daygrid-day,
+.calendar-container .fc .fc-popover .fc-daygrid-day-frame {
+  min-height: 0 !important;
+  background: #fff !important;
+}
+
+.calendar-container .fc .fc-popover .fc-daygrid-day-frame {
+  padding: 4px 0 8px !important;
+}
+
+.calendar-container .fc .fc-more-popover .fc-popover-body {
+  padding: 4px 12px 12px !important;
+}
+
+.calendar-container .fc .fc-popover .fc-daygrid-event-harness {
+  margin: 0 0 8px !important;
+}
+
+.calendar-container .fc .fc-popover .fc-daygrid-event-harness:last-child {
+  margin-bottom: 0 !important;
+}
+
+.calendar-container .fc .fc-popover .fc-daygrid-dot-event {
+  display: block;
+  padding: 0;
+}
+
+.calendar-container .fc .fc-popover .fc-daygrid-dot-event:hover {
+  background: transparent;
+}
+
+.calendar-container .fc .fc-popover .fc-event.gpw-month-job-event {
+  border-radius: 12px !important;
+  border-left-width: 3px !important;
+}
+
+.calendar-container .fc .fc-popover .gpw-month-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-height: 0;
+  padding: 10px 12px 11px 12px;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.calendar-container .fc .fc-popover .gpw-month-chip::before {
+  display: none;
+}
+
+.calendar-container .fc .fc-popover .gpw-month-chip-name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+.calendar-container .fc .fc-popover .gpw-month-chip-time,
+.calendar-container .fc .fc-popover .gpw-month-chip-detail,
+.calendar-container .fc .fc-popover .gpw-month-chip-price {
+  display: block;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #4b5563;
+  text-overflow: ellipsis;
+}
+
+.calendar-container .fc .fc-popover .gpw-month-chip-time {
+  color: var(--gpw-muted, #1d4ed8);
+  font-weight: 600;
+}
+
+.calendar-container .fc .fc-popover .gpw-month-chip-price {
+  margin-top: 2px;
+  color: var(--gpw-ink, #1e3a8a);
+  font-weight: 600;
 }
 
 .calendar-container .fc .fc-multimonth {
@@ -196,11 +470,28 @@ body {
 
 .calendar-container .fc .fc-daygrid-day-frame {
   position: relative;
-  padding-bottom: 1.4rem;
 }
 
 .calendar-container .fc .fc-daygrid-day {
-  min-height: 4.5rem;
+  min-height: 0;
+}
+
+.calendar-container .fc-multimonth-multicol .fc-multimonth-month {
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.calendar-container .fc-multimonth .fc-daygrid-day-frame {
+  min-height: 6rem;
+}
+
+.calendar-container .fc-multimonth .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  font-size: 0.68rem;
 }
 
 .calendar-container .gpw-view-day-btn {
@@ -231,9 +522,26 @@ body {
 }
 
 .calendar-container .fc .fc-popover-header {
-  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  padding: 14px 14px 8px;
+  border-bottom: none;
+  color: #111827;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.calendar-container .fc .fc-popover-close {
+  color: #9ca3af;
+  font-size: 1.1rem;
+  opacity: 1;
+}
+
+.calendar-container .fc .fc-popover-close:hover {
+  color: #111827;
 }
 
 @media (max-width: 768px) {
