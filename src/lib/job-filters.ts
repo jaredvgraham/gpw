@@ -6,6 +6,12 @@ export function filterJobs(jobs: Job[], filters: JobFilters): Job[] {
   return jobs.filter((job) => {
     if (filters.status && job.status !== filters.status) return false;
 
+    if (filters.paid === "paid" && !job.paid) return false;
+    if (filters.paid === "unpaid") {
+      if (job.paid) return false;
+      if (job.status === "Cancelled" && filters.status !== "Cancelled") return false;
+    }
+
     const dateStr = getJobDateOnly(job.jobDate);
     if (filters.startDate && dateStr < filters.startDate) return false;
     if (filters.endDate && dateStr > filters.endDate) return false;
