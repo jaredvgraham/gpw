@@ -3,22 +3,34 @@
 import { ChevronRight } from "lucide-react";
 import { MONTH_LABELS } from "@/lib/dashboard-stats";
 
-type ViewMode = "year" | "month" | "week";
+type ViewMode = "year" | "month" | "week" | "range";
 
 export default function InsightsBreadcrumb({
   view,
   year,
   month,
-  monthWeek,
+  weekLabel,
+  rangeLabel,
   onNavigate,
 }: {
   view: ViewMode;
   year: number;
   month: number;
-  monthWeek: number;
+  weekLabel: string;
+  rangeLabel?: string;
   onNavigate: (target: ViewMode) => void;
 }) {
   const monthLabel = `${MONTH_LABELS[month - 1]} ${year}`;
+
+  if (view === "range") {
+    return (
+      <nav aria-label="Insights period" className="flex flex-wrap items-center gap-1 text-sm">
+        <span className="rounded-md bg-blue-50 px-2 py-1 font-medium text-brand-blue">
+          {rangeLabel || "Custom range"}
+        </span>
+      </nav>
+    );
+  }
 
   return (
     <nav aria-label="Insights period" className="flex flex-wrap items-center gap-1 text-sm">
@@ -55,7 +67,7 @@ export default function InsightsBreadcrumb({
         <>
           <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
           <span className="rounded-md bg-blue-50 px-2 py-1 font-medium text-brand-blue">
-            Week {monthWeek}
+            {weekLabel}
           </span>
         </>
       )}

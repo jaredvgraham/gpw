@@ -1,9 +1,15 @@
 import {
   addDays,
+  differenceInCalendarDays,
+  eachMonthOfInterval,
   endOfMonth,
+  endOfWeek,
   endOfYear,
   format,
+  max,
+  min,
   startOfMonth,
+  startOfWeek,
   startOfYear,
 } from "date-fns";
 import { getJobDateOnly } from "@/lib/dates";
@@ -64,7 +70,6 @@ export interface QuarterlyRevenue {
 
 export interface WeekInsights {
   label: string;
-  weekIndex: number;
   weekStart: string;
   weekEnd: string;
   revenue: number;
@@ -124,10 +129,32 @@ export interface YearInsights {
   statusCounts: StatusCount[];
 }
 
+export interface RangeInsights {
+  label: string;
+  start: string;
+  end: string;
+  revenue: number;
+  collected: number;
+  outstanding: number;
+  jobsTotal: number;
+  completed: number;
+  scheduled: number;
+  cancelled: number;
+  paidJobs: number;
+  averageJobValue: number;
+  uniqueCustomers: number;
+  statusCounts: StatusCount[];
+  topServices: ServiceInsight[];
+  topCustomers: CustomerInsight[];
+  buckets: RevenuePoint[];
+  bucketDescription: string;
+}
+
 export interface InsightOptions {
   year?: number;
   month?: number;
-  monthWeek?: number;
+  /** Any date inside the week to show. Monday–Sunday. */
+  weekStart?: string;
 }
 
 export interface BusinessInsights {
@@ -143,49 +170,15 @@ export interface BusinessInsights {
 }
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-export const WEEKS_PER_MONTH = 4;
-const MONTH_WEEK_START_DAYS = [1, 8, 15, 22] as const;
-const MONTH_WEEK_END_DAYS = [7, 14, 21] as const;
+const WEEK_STARTS_ON = 1 as const;
 
-function isWorkingDay(dateStr: string): boolean {
-  const day = new Date(`${dateStr}T12:00:00`).getDay();
-  return day >= 1 && day <= 5;
-}
-
-function isJobOnWorkingDay(job: Job): boolean {
-  return isWorkingDay(getJobDateOnly(job.jobDate));
-}
-
-export function getMonthWeekIndex(dateStr: string): number {
-  const day = Number(getJobDateOnly(dateStr).slice(8, 10));
-  if (day <= 7) return 1;
-  if (day <= 14) return 2;
-  if (day <= 21) return 3;
-  return 4;
-}
-
-export function getMonthWeekRange(year: number, month: number, weekIndex: number) {
-  const lastDay = endOfMonth(new Date(year, month - 1, 1)).getDate();
-  const startDay = MONTH_WEEK_START_DAYS[weekIndex - 1];
-  const endDay = weekIndex === WEEKS_PER_MONTH ? lastDay : MONTH_WEEK_END_DAYS[weekIndex - 1];
-
+/** Monday–Sunday range containing `anchor` (an ISO date or a local Date). */
+export function calendarWeekRange(anchor: string | Date) {
+  const date = typeof anchor === "string" ? new Date(`${anchor.slice(0, 10)}T12:00:00`) : anchor;
   return {
-    start: format(new Date(year, month - 1, startDay), "yyyy-MM-dd"),
-    end: format(new Date(year, month - 1, endDay), "yyyy-MM-dd"),
+    start: format(startOfWeek(date, { weekStartsOn: WEEK_STARTS_ON }), "yyyy-MM-dd"),
+    end: format(endOfWeek(date, { weekStartsOn: WEEK_STARTS_ON }), "yyyy-MM-dd"),
   };
-}
-
-function countWorkingDaysInRange(start: string, end: string): number {
-  let count = 0;
-  let cursor = new Date(`${start}T12:00:00`);
-  const endDate = new Date(`${end}T12:00:00`);
-
-  while (cursor <= endDate) {
-    if (isWorkingDay(format(cursor, "yyyy-MM-dd"))) count += 1;
-    cursor = addDays(cursor, 1);
-  }
-
-  return count;
 }
 
 function jobRevenue(job: Job): number {
@@ -264,34 +257,38 @@ function getAvailableYears(jobs: Job[]): number[] {
   return [...years].sort((a, b) => b - a);
 }
 
+function calendarWeeksOverlappingMonth(year: number, month: number) {
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = endOfMonth(monthStart);
+  const weeks: { start: string; end: string }[] = [];
+  let cursor = startOfWeek(monthStart, { weekStartsOn: WEEK_STARTS_ON });
+
+  while (cursor <= monthEnd) {
+    weeks.push(calendarWeekRange(cursor));
+    cursor = addDays(cursor, 7);
+  }
+
+  return weeks;
+}
+
 function buildWeeklyBucketsInMonth(
   jobs: Job[],
   year: number,
   month: number
 ): RevenuePoint[] {
-  const monthStart = format(new Date(year, month - 1, 1), "yyyy-MM-dd");
-  const monthEnd = format(endOfMonth(new Date(year, month - 1, 1)), "yyyy-MM-dd");
-  const monthJobs = jobs.filter((job) => isInRange(job, monthStart, monthEnd));
-
-  return Array.from({ length: WEEKS_PER_MONTH }, (_, index) => {
-    const weekIndex = index + 1;
-    const { start, end } = getMonthWeekRange(year, month, weekIndex);
-    const workingDays = countWorkingDaysInRange(start, end);
-    const bucketJobs = monthJobs.filter(
-      (job) => isInRange(job, start, end) && isJobOnWorkingDay(job)
-    );
+  return calendarWeeksOverlappingMonth(year, month).map(({ start, end }, index) => {
+    const bucketJobs = jobs.filter((job) => isInRange(job, start, end));
     const stats = aggregateJobs(bucketJobs);
     const startDate = new Date(`${start}T12:00:00`);
     const endDate = new Date(`${end}T12:00:00`);
 
     return {
-      key: `${year}-${String(month).padStart(2, "0")}-w${weekIndex}`,
-      weekIndex,
-      label: `Week ${weekIndex} · ${format(startDate, "MMM d")}–${format(endDate, "MMM d")}`,
-      shortLabel: `W${weekIndex}`,
+      key: start,
+      weekIndex: index + 1,
+      label: formatRangeLabel(start, end),
+      shortLabel: format(startDate, startDate.getMonth() === endDate.getMonth() ? "MMM d" : "M/d"),
       startDate: start,
       endDate: end,
-      workingDays,
       ...stats,
     };
   });
@@ -304,22 +301,17 @@ function buildDailyBucketsInRange(jobs: Job[], start: string, end: string): Reve
 
   while (cursor <= endDate) {
     const day = format(cursor, "yyyy-MM-dd");
+    const dayJobs = jobs.filter((job) => getJobDateOnly(job.jobDate) === day);
+    const stats = aggregateJobs(dayJobs);
 
-    if (isWorkingDay(day)) {
-      const dayJobs = jobs.filter((job) => getJobDateOnly(job.jobDate) === day);
-      const stats = aggregateJobs(dayJobs);
-      const dayDate = new Date(`${day}T12:00:00`);
-
-      buckets.push({
-        key: day,
-        label: format(dayDate, "EEE"),
-        shortLabel: format(dayDate, "d"),
-        startDate: day,
-        endDate: day,
-        workingDays: 1,
-        ...stats,
-      });
-    }
+    buckets.push({
+      key: day,
+      label: format(cursor, "EEE, MMM d"),
+      shortLabel: format(cursor, "EEE"),
+      startDate: day,
+      endDate: day,
+      ...stats,
+    });
 
     cursor = addDays(cursor, 1);
   }
@@ -327,25 +319,16 @@ function buildDailyBucketsInRange(jobs: Job[], start: string, end: string): Reve
   return buckets;
 }
 
-function computeWeekInsights(
-  jobs: Job[],
-  year: number,
-  month: number,
-  monthWeek: number
-): WeekInsights {
-  const { start, end } = getMonthWeekRange(year, month, monthWeek);
-  const weekJobs = jobs.filter((job) => isInRange(job, start, end) && isJobOnWorkingDay(job));
+function computeWeekInsights(jobs: Job[], anchor: string): WeekInsights {
+  const { start, end } = calendarWeekRange(anchor);
+  const weekJobs = jobs.filter((job) => isInRange(job, start, end));
   const activeWeekJobs = weekJobs.filter(isActive);
   const completedWeekJobs = weekJobs.filter((job) => job.status === "Completed");
   const pricedWeekJobs = weekJobs.filter((job) => jobRevenue(job) > 0);
   const pricedCompletedJobs = completedWeekJobs.filter((job) => jobRevenue(job) > 0);
 
-  const startDate = new Date(`${start}T12:00:00`);
-  const endDate = new Date(`${end}T12:00:00`);
-
   return {
-    label: `Week ${monthWeek} · ${format(startDate, "MMM d")}–${format(endDate, "MMM d, yyyy")}`,
-    weekIndex: monthWeek,
+    label: formatRangeLabel(start, end),
     weekStart: start,
     weekEnd: end,
     revenue: weekJobs.reduce((sum, job) => sum + jobRevenue(job), 0),
@@ -516,13 +499,143 @@ function computeYearInsights(jobs: Job[], year: number): YearInsights {
   };
 }
 
+function parseIsoDate(iso: string) {
+  return new Date(`${iso}T12:00:00`);
+}
+
+function formatRangeLabel(start: string, end: string) {
+  if (start === end) return format(parseIsoDate(start), "MMM d, yyyy");
+  const startDate = parseIsoDate(start);
+  const endDate = parseIsoDate(end);
+  if (startDate.getFullYear() === endDate.getFullYear() && startDate.getMonth() === endDate.getMonth()) {
+    return `${format(startDate, "MMM d")}–${format(endDate, "d, yyyy")}`;
+  }
+  if (startDate.getFullYear() === endDate.getFullYear()) {
+    return `${format(startDate, "MMM d")} – ${format(endDate, "MMM d, yyyy")}`;
+  }
+  return `${format(startDate, "MMM d, yyyy")} – ${format(endDate, "MMM d, yyyy")}`;
+}
+
+function buildEveryDayBuckets(jobs: Job[], start: string, end: string): RevenuePoint[] {
+  const crossesMonth = start.slice(0, 7) !== end.slice(0, 7);
+  const points: RevenuePoint[] = [];
+  let cursor = parseIsoDate(start);
+  const endDate = parseIsoDate(end);
+
+  while (cursor <= endDate) {
+    const day = format(cursor, "yyyy-MM-dd");
+    const dayJobs = jobs.filter((job) => getJobDateOnly(job.jobDate) === day);
+    points.push({
+      key: day,
+      label: format(cursor, "EEE, MMM d"),
+      shortLabel: crossesMonth ? format(cursor, "M/d") : format(cursor, "d"),
+      startDate: day,
+      endDate: day,
+      ...aggregateJobs(dayJobs),
+    });
+    cursor = addDays(cursor, 1);
+  }
+
+  return points;
+}
+
+function buildClippedWeekBuckets(jobs: Job[], start: string, end: string): RevenuePoint[] {
+  const rangeStart = parseIsoDate(start);
+  const rangeEnd = parseIsoDate(end);
+  const points: RevenuePoint[] = [];
+  let cursor = rangeStart;
+
+  while (cursor <= rangeEnd) {
+    const weekStart = max([startOfWeek(cursor, { weekStartsOn: WEEK_STARTS_ON }), rangeStart]);
+    const weekEnd = min([endOfWeek(cursor, { weekStartsOn: WEEK_STARTS_ON }), rangeEnd]);
+    const startIso = format(weekStart, "yyyy-MM-dd");
+    const endIso = format(weekEnd, "yyyy-MM-dd");
+    const bucketJobs = jobs.filter((job) => isInRange(job, startIso, endIso));
+    points.push({
+      key: startIso,
+      label: formatRangeLabel(startIso, endIso),
+      shortLabel: format(weekStart, "MMM d"),
+      startDate: startIso,
+      endDate: endIso,
+      ...aggregateJobs(bucketJobs),
+    });
+    cursor = addDays(weekEnd, 1);
+  }
+
+  return points;
+}
+
+function buildClippedMonthBuckets(jobs: Job[], start: string, end: string): RevenuePoint[] {
+  const rangeStart = parseIsoDate(start);
+  const rangeEnd = parseIsoDate(end);
+
+  return eachMonthOfInterval({ start: rangeStart, end: rangeEnd }).map((monthDate) => {
+    const bucketStart = max([startOfMonth(monthDate), rangeStart]);
+    const bucketEnd = min([endOfMonth(monthDate), rangeEnd]);
+    const startIso = format(bucketStart, "yyyy-MM-dd");
+    const endIso = format(bucketEnd, "yyyy-MM-dd");
+    const bucketJobs = jobs.filter((job) => isInRange(job, startIso, endIso));
+    return {
+      key: format(monthDate, "yyyy-MM"),
+      label: format(monthDate, "MMMM yyyy"),
+      shortLabel: format(monthDate, "MMM"),
+      startDate: startIso,
+      endDate: endIso,
+      ...aggregateJobs(bucketJobs),
+    };
+  });
+}
+
+export function computeRangeInsights(jobs: Job[], start: string, end: string): RangeInsights {
+  const from = start <= end ? start : end;
+  const to = start <= end ? end : start;
+  const rangeJobs = jobs.filter((job) => isInRange(job, from, to));
+  const activeJobs = rangeJobs.filter(isActive);
+  const completedJobs = rangeJobs.filter((job) => job.status === "Completed");
+  const pricedJobs = rangeJobs.filter((job) => jobRevenue(job) > 0);
+  const span = differenceInCalendarDays(parseIsoDate(to), parseIsoDate(from));
+  const buckets =
+    span <= 31
+      ? buildEveryDayBuckets(rangeJobs, from, to)
+      : span <= 180
+        ? buildClippedWeekBuckets(rangeJobs, from, to)
+        : buildClippedMonthBuckets(rangeJobs, from, to);
+
+  return {
+    label: formatRangeLabel(from, to),
+    start: from,
+    end: to,
+    revenue: rangeJobs.reduce((sum, job) => sum + jobRevenue(job), 0),
+    collected: rangeJobs.filter((job) => job.paid).reduce((sum, job) => sum + jobRevenue(job), 0),
+    outstanding: activeJobs
+      .filter((job) => !job.paid && jobRevenue(job) > 0)
+      .reduce((sum, job) => sum + jobRevenue(job), 0),
+    jobsTotal: rangeJobs.length,
+    completed: completedJobs.length,
+    scheduled: rangeJobs.filter((job) => job.status === "Scheduled").length,
+    cancelled: rangeJobs.filter((job) => job.status === "Cancelled").length,
+    paidJobs: rangeJobs.filter((job) => job.paid).length,
+    averageJobValue:
+      pricedJobs.length > 0
+        ? pricedJobs.reduce((sum, job) => sum + jobRevenue(job), 0) / pricedJobs.length
+        : 0,
+    uniqueCustomers: countUniqueCustomerGroups(rangeJobs),
+    statusCounts: buildStatusCounts(rangeJobs),
+    topServices: buildTopServices(rangeJobs),
+    topCustomers: buildTopCustomers(rangeJobs),
+    buckets,
+    bucketDescription:
+      span <= 31 ? "Each day in the range" : span <= 180 ? "Each week in the range" : "Each month in the range",
+  };
+}
+
 export function computeBusinessInsights(jobs: Job[], options?: InsightOptions): BusinessInsights {
   const now = new Date();
   const today = format(now, "yyyy-MM-dd");
   const tomorrow = format(addDays(now, 1), "yyyy-MM-dd");
   const year = options?.year ?? now.getFullYear();
   const month = options?.month ?? now.getMonth() + 1;
-  const monthWeek = options?.monthWeek ?? getMonthWeekIndex(today);
+  const weekAnchor = options?.weekStart ?? today;
 
   const todayJobs = jobs.filter((job) => getJobDateOnly(job.jobDate) === today);
   const tomorrowJobs = jobs.filter((job) => getJobDateOnly(job.jobDate) === tomorrow);
@@ -544,7 +657,7 @@ export function computeBusinessInsights(jobs: Job[], options?: InsightOptions): 
     upcomingJobs,
     needsFollowUpCount: jobs.filter((job) => job.status === "Needs Follow-Up").length,
     unpaidJobsCount: jobs.filter((job) => isActive(job) && !job.paid && jobRevenue(job) > 0).length,
-    week: computeWeekInsights(jobs, year, month, monthWeek),
+    week: computeWeekInsights(jobs, weekAnchor),
     month: computeMonthInsights(jobs, year, month),
     year: computeYearInsights(jobs, year),
   };

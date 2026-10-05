@@ -15,7 +15,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { format } from "date-fns";
+import { addDays, endOfMonth, format, startOfMonth } from "date-fns";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -30,17 +30,22 @@ import ChartCard from "@/components/dashboard/ChartCard";
 import {
   MonthNavigator,
   PeriodViewToggle,
+  RangePicker,
   WeekNavigator,
   YearSelector,
+  type PeriodView,
 } from "@/components/dashboard/PeriodNav";
 import { formatCurrency } from "@/lib/utils";
-import { computeBusinessInsights, getMonthWeekIndex, type RevenuePoint } from "@/lib/dashboard-stats";
+import {
+  calendarWeekRange,
+  computeBusinessInsights,
+  computeRangeInsights,
+  type RevenuePoint,
+} from "@/lib/dashboard-stats";
 import { STATUS_COLORS } from "@/lib/constants";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { useAppData } from "@/contexts/AppDataContext";
 import { getJobDateOnly } from "@/lib/dates";
-
-type ViewMode = "year" | "month" | "week";
 
 export default function DashboardPage() {
   const { openNewJob } = useJobModals();
@@ -50,19 +55,26 @@ export default function DashboardPage() {
   const currentMonth = now.getMonth() + 1;
   const today = format(now, "yyyy-MM-dd");
 
-  const [view, setView] = useState<ViewMode>("year");
+  const [view, setView] = useState<PeriodView>("year");
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [selectedMonthWeek, setSelectedMonthWeek] = useState(() => getMonthWeekIndex(today));
+  const [selectedWeekStart, setSelectedWeekStart] = useState(() => calendarWeekRange(today).start);
+  const [rangeStart, setRangeStart] = useState(() => format(startOfMonth(now), "yyyy-MM-dd"));
+  const [rangeEnd, setRangeEnd] = useState(() => format(endOfMonth(now), "yyyy-MM-dd"));
 
   const insights = useMemo(
     () =>
       computeBusinessInsights(jobs, {
         year: selectedYear,
         month: selectedMonth,
-        monthWeek: selectedMonthWeek,
+        weekStart: selectedWeekStart,
       }),
-    [jobs, selectedYear, selectedMonth, selectedMonthWeek]
+    [jobs, selectedYear, selectedMonth, selectedWeekStart]
+  );
+
+  const range = useMemo(
+    () => computeRangeInsights(jobs, rangeStart, rangeEnd),
+    [jobs, rangeStart, rangeEnd]
   );
 
   const { month, week, year } = insights;
@@ -80,13 +92,15 @@ export default function DashboardPage() {
     setSelectedMonth(mo);
   };
 
-  const handleMonthWeekChange = (yr: number, mo: number, wk: number) => {
-    setSelectedYear(yr);
-    setSelectedMonth(mo);
-    setSelectedMonthWeek(wk);
+  const handleWeekChange = (anchor: string) => {
+    const { start } = calendarWeekRange(anchor);
+    setSelectedWeekStart(start);
+    const midweek = addDays(new Date(`${start}T12:00:00`), 3);
+    setSelectedYear(midweek.getFullYear());
+    setSelectedMonth(midweek.getMonth() + 1);
   };
 
-  const handleBreadcrumbNavigate = (target: ViewMode) => {
+  const handleBreadcrumbNavigate = (target: PeriodView) => {
     setView(target);
     if (target === "year") return;
     if (target === "month") {
@@ -104,16 +118,12 @@ export default function DashboardPage() {
   };
 
   const drillToWeek = (point: RevenuePoint) => {
-    if (!point.weekIndex) return;
-    const anchor = new Date(`${point.startDate}T12:00:00`);
-    setSelectedYear(anchor.getFullYear());
-    setSelectedMonth(anchor.getMonth() + 1);
-    setSelectedMonthWeek(point.weekIndex);
+    handleWeekChange(point.startDate);
     setView("week");
   };
 
   const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
-  const currentWeekKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}-w${getMonthWeekIndex(today)}`;
+  const currentWeekKey = calendarWeekRange(today).start;
 
   if (jobsLoading && jobs.length === 0) return <LoadingSpinner />;
 
@@ -139,7 +149,8 @@ export default function DashboardPage() {
             view={view}
             year={selectedYear}
             month={selectedMonth}
-            monthWeek={selectedMonthWeek}
+            weekLabel={week.label}
+            rangeLabel={range.label}
             onNavigate={handleBreadcrumbNavigate}
           />
           <div className="flex flex-wrap gap-2">
@@ -173,12 +184,13 @@ export default function DashboardPage() {
             <MonthNavigator year={selectedYear} month={selectedMonth} onChange={handleMonthChange} />
           )}
           {view === "week" && (
-            <WeekNavigator
-              year={selectedYear}
-              month={selectedMonth}
-              weekIndex={week.weekIndex}
-              onChange={handleMonthWeekChange}
-            />
+            <WeekNavigator weekStart={selectedWeekStart} onChange={handleWeekChange} />
+          )}
+          {view === "range" && (
+            <RangePicker start={rangeStart} end={rangeEnd} onChange={(start, end) => {
+              setRangeStart(start);
+              setRangeEnd(end);
+            }} />
           )}
         </div>
       </div>
@@ -323,8 +335,8 @@ export default function DashboardPage() {
           </div>
 
           <ChartCard
-            title="4-week breakdown"
-            description="Mon–Fri revenue · tap a week for daily view"
+            title="Weekly breakdown"
+            description="Monday–Sunday · tap a week for each day"
           >
             <RevenueBarChart
               data={month.weeklyRevenue}
@@ -401,7 +413,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <ChartCard title="Daily breakdown" description="Working days only (Mon–Fri)">
+          <ChartCard title="Daily breakdown" description="Monday through Sunday">
             <RevenueBarChart
               data={week.dailyRevenue}
               highlightKey={
@@ -426,6 +438,76 @@ export default function DashboardPage() {
               <StatusGrid counts={week.statusCounts} />
             </Card>
           </div>
+        </div>
+      )}
+
+      {view === "range" && (
+        <div className="space-y-6">
+          <InsightsHero
+            title={range.label}
+            revenue={range.revenue}
+            collected={range.collected}
+            jobs={range.jobsTotal}
+            meta={`${range.completed} completed · ${range.scheduled} scheduled`}
+          />
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <MetricCard
+              label="Outstanding"
+              value={formatCurrency(range.outstanding)}
+              sub="Unpaid in this range"
+              icon={CircleDollarSign}
+              accent="amber"
+            />
+            <MetricCard
+              label="Avg job"
+              value={formatCurrency(range.averageJobValue)}
+              sub={`${range.paidJobs} paid`}
+              icon={BarChart3}
+              accent="blue"
+            />
+            <MetricCard
+              label="Customers"
+              value={String(range.uniqueCustomers)}
+              icon={Users}
+              accent="green"
+            />
+            <MetricCard
+              label="Cancelled"
+              value={String(range.cancelled)}
+              icon={CheckCircle}
+              accent="red"
+            />
+          </div>
+
+          <ChartCard title="Breakdown" description={range.bucketDescription}>
+            <RevenueBarChart data={range.buckets} showShortLabels />
+          </ChartCard>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card title="Top services">
+              <HorizontalBarList
+                items={range.topServices.map((service) => ({
+                  name: service.name,
+                  value: service.revenue,
+                  sub: `${service.count} booking${service.count !== 1 ? "s" : ""}`,
+                }))}
+                color="red"
+                emptyMessage="No services in this range."
+              />
+            </Card>
+            <Card title="Top customers">
+              <TopCustomersList
+                items={range.topCustomers}
+                color="blue"
+                emptyMessage="No customers in this range."
+              />
+            </Card>
+          </div>
+
+          <Card title="Job status">
+            <StatusGrid counts={range.statusCounts} />
+          </Card>
         </div>
       )}
     </div>

@@ -1,15 +1,16 @@
 "use client";
 
-import { addMonths, format, subMonths } from "date-fns";
+import { addDays, addMonths, format, subMonths } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { MONTH_LABELS, WEEKS_PER_MONTH, getMonthWeekIndex } from "@/lib/dashboard-stats";
+import { MONTH_LABELS, calendarWeekRange } from "@/lib/dashboard-stats";
 
-type PeriodView = "year" | "month" | "week";
+export type PeriodView = "year" | "month" | "week" | "range";
 
 const VIEW_LABELS: Record<PeriodView, string> = {
   year: "Year",
   month: "Month",
   week: "Week",
+  range: "Range",
 };
 
 export function PeriodViewToggle({
@@ -21,7 +22,7 @@ export function PeriodViewToggle({
 }) {
   return (
     <div className="inline-flex rounded-xl border border-brand-border bg-brand-gray/50 p-1">
-      {(["year", "month", "week"] as const).map((mode) => (
+      {(["year", "month", "week", "range"] as const).map((mode) => (
         <button
           key={mode}
           type="button"
@@ -120,39 +121,29 @@ export function MonthNavigator({
   );
 }
 
+function weekNavLabel(start: string, end: string) {
+  const startDate = new Date(`${start}T12:00:00`);
+  const endDate = new Date(`${end}T12:00:00`);
+  if (startDate.getFullYear() !== endDate.getFullYear()) {
+    return `${format(startDate, "MMM d, yyyy")} – ${format(endDate, "MMM d, yyyy")}`;
+  }
+  if (startDate.getMonth() !== endDate.getMonth()) {
+    return `${format(startDate, "MMM d")} – ${format(endDate, "MMM d")}`;
+  }
+  return `${format(startDate, "MMM d")} – ${format(endDate, "d")}`;
+}
+
 export function WeekNavigator({
-  year,
-  month,
-  weekIndex,
+  weekStart,
   onChange,
 }: {
-  year: number;
-  month: number;
-  weekIndex: number;
-  onChange: (year: number, month: number, weekIndex: number) => void;
+  weekStart: string;
+  onChange: (weekStart: string) => void;
 }) {
-  const goPrev = () => {
-    if (weekIndex > 1) {
-      onChange(year, month, weekIndex - 1);
-      return;
-    }
-    const prev = subMonths(new Date(year, month - 1, 1), 1);
-    onChange(prev.getFullYear(), prev.getMonth() + 1, WEEKS_PER_MONTH);
-  };
+  const { start, end } = calendarWeekRange(weekStart);
 
-  const goNext = () => {
-    if (weekIndex < WEEKS_PER_MONTH) {
-      onChange(year, month, weekIndex + 1);
-      return;
-    }
-    const next = addMonths(new Date(year, month - 1, 1), 1);
-    onChange(next.getFullYear(), next.getMonth() + 1, 1);
-  };
-
-  const goThisWeek = () => {
-    const today = format(new Date(), "yyyy-MM-dd");
-    const todayDate = new Date(`${today}T12:00:00`);
-    onChange(todayDate.getFullYear(), todayDate.getMonth() + 1, getMonthWeekIndex(today));
+  const shift = (days: number) => {
+    onChange(format(addDays(new Date(`${start}T12:00:00`), days), "yyyy-MM-dd"));
   };
 
   return (
@@ -160,18 +151,18 @@ export function WeekNavigator({
       <div className="inline-flex items-center rounded-xl border border-brand-border bg-white overflow-hidden">
         <button
           type="button"
-          onClick={goPrev}
+          onClick={() => shift(-7)}
           className="p-2.5 text-gray-600 hover:bg-brand-gray transition-colors"
           aria-label="Previous week"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <span className="border-x border-brand-border px-4 py-2.5 text-sm font-semibold text-brand-black whitespace-nowrap">
-          Week {weekIndex} <span className="text-gray-400 font-normal">of {WEEKS_PER_MONTH}</span>
+          {weekNavLabel(start, end)}
         </span>
         <button
           type="button"
-          onClick={goNext}
+          onClick={() => shift(7)}
           className="p-2.5 text-gray-600 hover:bg-brand-gray transition-colors"
           aria-label="Next week"
         >
@@ -180,11 +171,48 @@ export function WeekNavigator({
       </div>
       <button
         type="button"
-        onClick={goThisWeek}
+        onClick={() => onChange(format(new Date(), "yyyy-MM-dd"))}
         className="rounded-xl border border-brand-border bg-white px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-brand-gray transition-colors"
       >
         This week
       </button>
+    </div>
+  );
+}
+
+export function RangePicker({
+  start,
+  end,
+  onChange,
+}: {
+  start: string;
+  end: string;
+  onChange: (start: string, end: string) => void;
+}) {
+  return (
+    <div className="inline-flex flex-wrap items-center gap-2">
+      <label className="inline-flex items-center gap-2 rounded-xl border border-brand-border bg-white px-3 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">From</span>
+        <input
+          type="date"
+          value={start}
+          onChange={(event) => {
+            if (event.target.value) onChange(event.target.value, end);
+          }}
+          className="bg-transparent text-sm font-semibold text-brand-black outline-none"
+        />
+      </label>
+      <label className="inline-flex items-center gap-2 rounded-xl border border-brand-border bg-white px-3 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">To</span>
+        <input
+          type="date"
+          value={end}
+          onChange={(event) => {
+            if (event.target.value) onChange(start, event.target.value);
+          }}
+          className="bg-transparent text-sm font-semibold text-brand-black outline-none"
+        />
+      </label>
     </div>
   );
 }
