@@ -1,21 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Banknote,
   BarChart3,
   Calendar,
   CheckCircle,
-  CircleDollarSign,
   Clock,
   TrendingDown,
   TrendingUp,
   Users,
   Wallet,
 } from "lucide-react";
-import { addDays, endOfMonth, format, startOfMonth } from "date-fns";
+import { addDays, endOfMonth, endOfYear, format, startOfMonth, startOfYear } from "date-fns";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -25,6 +24,7 @@ import HorizontalBarList from "@/components/dashboard/HorizontalBarList";
 import TopCustomersList from "@/components/dashboard/TopCustomersList";
 import QuarterlyChart from "@/components/dashboard/QuarterlyChart";
 import InsightsBreadcrumb from "@/components/dashboard/InsightsBreadcrumb";
+import GrossNetSection from "@/components/dashboard/GrossNetSection";
 import InsightsHero from "@/components/dashboard/InsightsHero";
 import ChartCard from "@/components/dashboard/ChartCard";
 import {
@@ -39,6 +39,7 @@ import { formatCurrency } from "@/lib/utils";
 import {
   calendarWeekRange,
   computeBusinessInsights,
+  computePeriodProfit,
   computeRangeInsights,
   type RevenuePoint,
 } from "@/lib/dashboard-stats";
@@ -46,6 +47,7 @@ import { STATUS_COLORS } from "@/lib/constants";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { useAppData } from "@/contexts/AppDataContext";
 import { getJobDateOnly } from "@/lib/dates";
+import type { Expense } from "@/types";
 
 export default function DashboardPage() {
   const { openNewJob } = useJobModals();
@@ -61,6 +63,8 @@ export default function DashboardPage() {
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => calendarWeekRange(today).start);
   const [rangeStart, setRangeStart] = useState(() => format(startOfMonth(now), "yyyy-MM-dd"));
   const [rangeEnd, setRangeEnd] = useState(() => format(endOfMonth(now), "yyyy-MM-dd"));
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expensesReady, setExpensesReady] = useState(false);
 
   const insights = useMemo(
     () =>
@@ -76,6 +80,58 @@ export default function DashboardPage() {
     () => computeRangeInsights(jobs, rangeStart, rangeEnd),
     [jobs, rangeStart, rangeEnd]
   );
+
+  const profitRange = useMemo(() => {
+    if (view === "week") return { from: insights.week.weekStart, to: insights.week.weekEnd };
+    if (view === "month") {
+      const monthDate = new Date(selectedYear, selectedMonth - 1, 1);
+      return {
+        from: format(startOfMonth(monthDate), "yyyy-MM-dd"),
+        to: format(endOfMonth(monthDate), "yyyy-MM-dd"),
+      };
+    }
+    if (view === "range") return { from: range.start, to: range.end };
+    const yearDate = new Date(selectedYear, 0, 1);
+    return {
+      from: format(startOfYear(yearDate), "yyyy-MM-dd"),
+      to: format(endOfYear(yearDate), "yyyy-MM-dd"),
+    };
+  }, [
+    view,
+    selectedYear,
+    selectedMonth,
+    insights.week.weekStart,
+    insights.week.weekEnd,
+    range.start,
+    range.end,
+  ]);
+
+  const profit = useMemo(
+    () => computePeriodProfit(jobs, expenses, profitRange.from, profitRange.to),
+    [jobs, expenses, profitRange]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/expenses")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load expenses");
+        return response.json() as Promise<Expense[]>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setExpenses(data);
+        setExpensesReady(true);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const { month, week, year } = insights;
 
@@ -131,7 +187,7 @@ export default function DashboardPage() {
     <div className="pb-8">
       <PageHeader
         title="Business Insights"
-        description="Revenue, collections, and job performance"
+        description="Revenue, expenses, and job performance"
         action={
           <button
             type="button"
@@ -195,12 +251,18 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <GrossNetSection
+        gross={profit.gross}
+        expenses={profit.expensesTotal}
+        net={profit.net}
+        expensesReady={expensesReady}
+      />
+
       {view === "year" && (
         <div className="space-y-6">
           <InsightsHero
             title={`${selectedYear} revenue`}
             revenue={year.revenueTotal}
-            collected={year.revenueCollected}
             jobs={year.jobsTotal}
             meta={
               year.bestMonth
@@ -209,14 +271,7 @@ export default function DashboardPage() {
             }
           />
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard
-              label="Outstanding"
-              value={formatCurrency(year.revenueOutstanding)}
-              sub="Unpaid this year"
-              icon={CircleDollarSign}
-              accent="amber"
-            />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <MetricCard
               label="Completed"
               value={String(year.jobsCompleted)}
@@ -305,19 +360,11 @@ export default function DashboardPage() {
           <InsightsHero
             title={month.label}
             revenue={month.revenue}
-            collected={month.collected}
             jobs={month.jobsTotal}
             meta={`${month.completed} completed · ${month.scheduled} scheduled`}
           />
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <MetricCard
-              label="Outstanding"
-              value={formatCurrency(month.outstanding)}
-              sub="Unpaid this month"
-              icon={CircleDollarSign}
-              accent="amber"
-            />
+          <div className="grid grid-cols-2 gap-3">
             <MetricCard
               label="Pipeline"
               value={formatCurrency(month.pipeline)}
@@ -328,7 +375,6 @@ export default function DashboardPage() {
             <MetricCard
               label="Avg completed"
               value={formatCurrency(month.averageCompletedJobValue)}
-              sub={`${month.paidJobs} paid`}
               icon={Wallet}
               accent="green"
             />
@@ -386,19 +432,11 @@ export default function DashboardPage() {
           <InsightsHero
             title={week.label}
             revenue={week.revenue}
-            collected={week.collected}
             jobs={week.jobsTotal}
             meta={`${week.completed} completed · ${week.scheduled} scheduled`}
           />
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <MetricCard
-              label="Outstanding"
-              value={formatCurrency(week.outstanding)}
-              sub="Unpaid this week"
-              icon={CircleDollarSign}
-              accent="amber"
-            />
+          <div className="grid grid-cols-2 gap-3">
             <MetricCard
               label="Avg job"
               value={formatCurrency(week.averageJobValue)}
@@ -446,23 +484,14 @@ export default function DashboardPage() {
           <InsightsHero
             title={range.label}
             revenue={range.revenue}
-            collected={range.collected}
             jobs={range.jobsTotal}
             meta={`${range.completed} completed · ${range.scheduled} scheduled`}
           />
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard
-              label="Outstanding"
-              value={formatCurrency(range.outstanding)}
-              sub="Unpaid in this range"
-              icon={CircleDollarSign}
-              accent="amber"
-            />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <MetricCard
               label="Avg job"
               value={formatCurrency(range.averageJobValue)}
-              sub={`${range.paidJobs} paid`}
               icon={BarChart3}
               accent="blue"
             />

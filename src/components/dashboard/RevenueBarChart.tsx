@@ -31,7 +31,6 @@ function BarTooltip({ point }: { point: RevenuePoint }) {
     <div className="rounded-lg border border-brand-border bg-white px-2.5 py-2 text-xs shadow-lg">
       <p className="font-semibold text-brand-black">{point.label}</p>
       <p className="text-brand-red font-bold">{formatCurrency(point.revenue)}</p>
-      <p className="text-gray-500 mt-0.5">{formatCurrency(point.collected)} collected</p>
       <p className="text-gray-400">
         {point.jobs} job{point.jobs !== 1 ? "s" : ""}
         {point.workingDays ? ` · ${point.workingDays} work day${point.workingDays !== 1 ? "s" : ""}` : ""}

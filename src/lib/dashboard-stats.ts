@@ -17,7 +17,7 @@ import { getCustomerName } from "@/lib/utils";
 import { JOB_STATUSES, type JobStatus } from "@/lib/constants";
 import { buildTopCustomersByHousehold, buildHouseholdIndex } from "@/lib/household-display";
 import type { CustomerInsight } from "@/lib/household-display";
-import type { Customer, Job } from "@/types";
+import type { Customer, Expense, Job } from "@/types";
 
 function getJobCustomer(job: Job): Customer | null {
   return typeof job.customer === "object" && job.customer !== null ? job.customer : null;
@@ -196,6 +196,22 @@ function jobYear(job: Job): number {
 function isInRange(job: Job, start: string, end: string): boolean {
   const date = getJobDateOnly(job.jobDate);
   return date >= start && date <= end;
+}
+
+export function computePeriodProfit(jobs: Job[], expenses: Expense[], start: string, end: string) {
+  const from = start <= end ? start : end;
+  const to = start <= end ? end : start;
+  const gross = jobs
+    .filter((job) => isActive(job) && isInRange(job, from, to))
+    .reduce((sum, job) => sum + jobRevenue(job), 0);
+  const expensesTotal = expenses
+    .filter((expense) => {
+      const date = getJobDateOnly(expense.date);
+      return date >= from && date <= to;
+    })
+    .reduce((sum, expense) => sum + expense.amount, 0);
+
+  return { gross, expensesTotal, net: gross - expensesTotal };
 }
 
 function aggregateJobs(jobs: Job[]): Pick<RevenuePoint, "revenue" | "collected" | "jobs" | "completed"> {

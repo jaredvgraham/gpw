@@ -7,7 +7,6 @@ export default function QuarterlyChart({ data }: { data: QuarterlyRevenue[] }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {data.map((quarter) => {
-        const collectedPct = quarter.revenue > 0 ? Math.round((quarter.collected / quarter.revenue) * 100) : 0;
         const barHeight = quarter.revenue > 0 ? Math.max(8, (quarter.revenue / maxValue) * 100) : 0;
 
         return (
@@ -29,11 +28,7 @@ export default function QuarterlyChart({ data }: { data: QuarterlyRevenue[] }) {
               />
             </div>
 
-            <div className="mt-3 space-y-0.5 text-xs text-gray-500">
-              <p>
-                <span className="font-medium text-green-600">{formatCurrency(quarter.collected)}</span>{" "}
-                collected · {collectedPct}%
-              </p>
+            <div className="mt-3 text-xs text-gray-500">
               <p>
                 {quarter.jobs} job{quarter.jobs !== 1 ? "s" : ""} · {quarter.completed} done
               </p>
