@@ -35,8 +35,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   ? "max-md:overflow-hidden calendar-bottom-nav-inset"
                   : "max-md:overflow-hidden"
                 : showBottomNav
-                  ? "overflow-auto main-with-bottom-nav"
-                  : "overflow-auto"
+                  ? "overflow-x-hidden overflow-y-auto overscroll-x-none main-with-bottom-nav"
+                  : "overflow-x-hidden overflow-y-auto overscroll-x-none"
             }`}
           >
             {!isCalendar && (

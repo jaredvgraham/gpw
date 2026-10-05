@@ -66,6 +66,10 @@ export interface SplitSummary {
   paidByJustin: number;
   net: number;
   ownerNet: number;
+  /** Jared's half of the expenses Justin paid. */
+  jaredOwesJustin: number;
+  /** Jared's half of the checks, plus Justin's half of the expenses Jared paid. */
+  justinOwesJared: number;
   /** Positive means Justin pays Jared. Negative means Jared pays Justin. */
   justinPaysJared: number;
   jobs: Job[];
@@ -89,6 +93,7 @@ export function computeSplit(
     .filter((expense) => inRange(getJobDateOnly(expense.date), range.from, range.to))
     .sort((a, b) => getJobDateOnly(b.date).localeCompare(getJobDateOnly(a.date)));
 
+  // Job totals only. Whether the customer has paid is ignored on purpose.
   const gross = completed.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
   const expensesTotal = rangedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const paidByJared = rangedExpenses
@@ -100,10 +105,13 @@ export function computeSplit(
   const net = gross - expensesTotal;
   const ownerNet = net / 2;
 
-  // Justin collects every customer check. Net is already after every expense,
-  // so each owner is owed half of that. Jared's expenses came out of his own
-  // pocket and still have to be paid back on top of his half.
-  const justinPaysJared = ownerNet + paidByJared;
+  // Justin holds the customer checks. Each owner covers half of every expense.
+  // Jared owes Justin half of what Justin paid. Justin owes Jared half the
+  // checks, plus half of what Jared paid. The difference is the cash transfer,
+  // and it can run either direction.
+  const jaredOwesJustin = paidByJustin / 2;
+  const justinOwesJared = gross / 2 + paidByJared / 2;
+  const justinPaysJared = justinOwesJared - jaredOwesJustin;
 
   return {
     jobCount: completed.length,
@@ -114,6 +122,8 @@ export function computeSplit(
     paidByJustin,
     net,
     ownerNet,
+    jaredOwesJustin,
+    justinOwesJared,
     justinPaysJared,
     jobs: completed,
     expenses: rangedExpenses,

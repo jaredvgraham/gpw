@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Plus, Trash2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -131,14 +131,16 @@ export default function SplitPage() {
 
   const loading = (jobsLoading && jobs.length === 0) || expensesLoading;
 
+  const justinPays = !summary || summary.justinPaysJared >= 0;
+
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full min-w-0 max-w-2xl overflow-x-hidden overscroll-x-none">
       <PageHeader
         title="Split"
-        description="Justin collects the checks. Profit and expenses are split in half, then Jared is paid back for what he covered."
+        description="Completed job totals minus expenses, split in half."
       />
 
-      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+      <div className="mb-4 flex flex-wrap gap-2">
         {SPLIT_PRESETS.map((option) => {
           const active = preset === option.id;
           return (
@@ -146,7 +148,7 @@ export default function SplitPage() {
               key={option.id}
               type="button"
               onClick={() => selectPreset(option.id)}
-              className={`shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold ${
+              className={`rounded-full px-3.5 py-2 text-sm font-semibold ${
                 active
                   ? "bg-brand-blue text-white"
                   : "border border-brand-border bg-white text-gray-700"
@@ -158,25 +160,31 @@ export default function SplitPage() {
         })}
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-3">
-        <Input
-          label="From"
-          type="date"
-          value={from}
-          onChange={(e) => {
-            setPreset("custom");
-            setFrom(e.target.value);
-          }}
-        />
-        <Input
-          label="To"
-          type="date"
-          value={to}
-          onChange={(e) => {
-            setPreset("custom");
-            setTo(e.target.value);
-          }}
-        />
+      <div className="mb-5 grid min-w-0 grid-cols-2 gap-3">
+        <div className="min-w-0">
+          <Input
+            label="From"
+            type="date"
+            value={from}
+            onChange={(e) => {
+              setPreset("custom");
+              setFrom(e.target.value);
+            }}
+            className="min-w-0 max-w-full"
+          />
+        </div>
+        <div className="min-w-0">
+          <Input
+            label="To"
+            type="date"
+            value={to}
+            onChange={(e) => {
+              setPreset("custom");
+              setTo(e.target.value);
+            }}
+            className="min-w-0 max-w-full"
+          />
+        </div>
       </div>
 
       {rangeInvalid ? (
@@ -187,61 +195,68 @@ export default function SplitPage() {
         <LoadingSpinner />
       ) : (
         <div className="space-y-4">
-          <section className="rounded-2xl border border-brand-blue bg-blue-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-blue">
-              {summary.justinPaysJared >= 0 ? "Justin pays Jared" : "Jared pays Justin"}
-            </p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-brand-black">
-              {formatCurrency(Math.abs(summary.justinPaysJared))}
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-gray-600">
-              {summary.justinPaysJared >= 0 ? (
-                <>
-                  Each owner&apos;s half of the net is {formatCurrency(summary.ownerNet)}. Justin
-                  already holds the customer checks
-                  {summary.paidByJared > 0
-                    ? `, so he also pays Jared back the ${formatCurrency(summary.paidByJared)} Jared spent out of pocket.`
-                    : "."}
-                </>
-              ) : (
-                <>
-                  Each owner&apos;s half of the net is {formatCurrency(summary.ownerNet)}. Jared
-                  pays Justin so both end on that number after the expenses Justin covered.
-                </>
-              )}
+          <section className="overflow-hidden rounded-2xl border border-brand-border bg-white">
+            <div className="px-4 pb-4 pt-4">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Pays
+                  </p>
+                  <p className="mt-0.5 truncate text-xl font-bold text-brand-black">
+                    {justinPays ? "Justin" : "Jared"}
+                  </p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-gray-400" aria-hidden />
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Gets
+                  </p>
+                  <p className="mt-0.5 truncate text-xl font-bold text-brand-black">
+                    {justinPays ? "Jared" : "Justin"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-3xl font-bold tabular-nums text-brand-blue">
+                {formatCurrency(Math.abs(summary.justinPaysJared))}
+              </p>
+            </div>
+
+            <div className="border-t border-brand-border px-4 py-3">
+              <AmountRow label="Job total" value={formatCurrency(summary.gross)} />
+              <AmountRow
+                label="Expenses"
+                sign="−"
+                value={formatCurrency(summary.expensesTotal)}
+              />
+              <p className="py-1 text-sm text-gray-500">
+                Jared paid {formatCurrency(summary.paidByJared)}. Justin paid{" "}
+                {formatCurrency(summary.paidByJustin)}.
+              </p>
+              <AmountRow label="Net" sign="=" value={formatCurrency(summary.net)} rule />
+              <p className="grid grid-cols-[1fr_7.25rem] items-baseline gap-3 py-1.5 text-sm">
+                <span className="text-gray-700">
+                  {formatCurrency(summary.net)} ÷ 2
+                </span>
+                <span className="text-right font-semibold tabular-nums text-brand-black">
+                  {formatCurrency(summary.ownerNet)}
+                </span>
+              </p>
+            </div>
+
+            <PersonSplit
+              name="Jared"
+              shouldFinish={summary.ownerNet}
+              isAt={-summary.paidByJared}
+            />
+            <PersonSplit
+              name="Justin"
+              shouldFinish={summary.ownerNet}
+              isAt={summary.gross - summary.paidByJustin}
+            />
+            <p className="border-t border-brand-border px-4 py-3 text-sm leading-relaxed text-gray-500">
+              Expenses stay in the total above. This only moves each of them onto their half.
             </p>
           </section>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <SummaryCard
-              label="Jared keeps"
-              value={formatCurrency(summary.ownerNet)}
-              detail={`Paid ${formatCurrency(summary.paidByJared)} in expenses`}
-            />
-            <SummaryCard
-              label="Justin keeps"
-              value={formatCurrency(summary.ownerNet)}
-              detail={`Collected ${formatCurrency(summary.gross)} and paid ${formatCurrency(summary.paidByJustin)}`}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <SummaryCard
-              label="Gross"
-              value={formatCurrency(summary.gross)}
-              detail={`${summary.jobCount} completed job${summary.jobCount !== 1 ? "s" : ""} collected by Justin`}
-            />
-            <SummaryCard
-              label="Expenses"
-              value={formatCurrency(summary.expensesTotal)}
-              detail={`Each owner ${formatCurrency(summary.ownerExpenses)}`}
-            />
-            <SummaryCard
-              label="Net"
-              value={formatCurrency(summary.net)}
-              detail={`Each owner ${formatCurrency(summary.ownerNet)}`}
-            />
-          </div>
 
           {summary.expenses.some((expense) => !expense.paidBy) && (
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -407,20 +422,47 @@ export default function SplitPage() {
   );
 }
 
-function SummaryCard({
+function PersonSplit({
+  name,
+  shouldFinish,
+  isAt,
+}: {
+  name: string;
+  shouldFinish: number;
+  isAt: number;
+}) {
+  const difference = shouldFinish - isAt;
+
+  return (
+    <div className="border-t border-brand-border px-4 py-3">
+      <p className="py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{name}</p>
+      <AmountRow label="Is at" value={formatCurrency(isAt)} />
+      <AmountRow label="Should finish at" value={formatCurrency(shouldFinish)} />
+      <AmountRow label="Difference" sign="=" value={formatCurrency(difference)} rule />
+    </div>
+  );
+}
+
+function AmountRow({
   label,
   value,
-  detail,
+  sign,
+  rule = false,
 }: {
   label: string;
   value: string;
-  detail: string;
+  sign?: string;
+  rule?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-brand-border bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-1 text-xl font-bold tabular-nums text-brand-black">{value}</p>
-      <p className="mt-1 text-xs text-gray-500">{detail}</p>
+    <div className={rule ? "mt-1 border-t border-brand-border pt-2" : undefined}>
+      <div className="grid grid-cols-[1fr_7.25rem] items-baseline gap-3 py-1.5">
+        <span className="text-gray-700">{label}</span>
+        <span className="text-right tabular-nums text-gray-800">
+          {sign && <span className="mr-2 text-gray-400">{sign}</span>}
+          {value}
+        </span>
+      </div>
     </div>
   );
 }
