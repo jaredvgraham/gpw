@@ -9,10 +9,12 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAppData } from "@/contexts/AppDataContext";
 import { EXPENSE_PAYERS, EXPENSE_TYPES, type ExpensePayer, type ExpenseType } from "@/lib/expenses";
 import {
+  computeOnTarget,
   computeSplit,
   getPresetRange,
   SPLIT_PRESETS,
   type SplitPreset,
+  type SplitSummary,
 } from "@/lib/split";
 import { formatCurrency, formatDate, getCustomerName } from "@/lib/utils";
 import type { Expense } from "@/types";
@@ -64,6 +66,11 @@ export default function SplitPage() {
 
   const summary = useMemo(
     () => (rangeInvalid ? null : computeSplit(jobs, expenses, { from, to })),
+    [jobs, expenses, from, to, rangeInvalid],
+  );
+
+  const onTarget = useMemo(
+    () => (rangeInvalid ? null : computeOnTarget(jobs, expenses, { from, to })),
     [jobs, expenses, from, to, rangeInvalid],
   );
 
@@ -222,6 +229,13 @@ export default function SplitPage() {
                 {formatCurrency(Math.abs(summary.justinPaysJared))}
               </p>
             </div>
+
+            {onTarget && (
+              <OnTarget
+                summary={onTarget}
+                remainingCount={onTarget.jobs.filter((job) => job.status !== "Completed").length}
+              />
+            )}
 
             <div className="border-t border-brand-border px-4 py-3 xl:hidden">
               <AmountRow label="Job total" value={formatCurrency(summary.gross)} />
@@ -440,6 +454,44 @@ export default function SplitPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function OnTarget({
+  summary,
+  remainingCount,
+}: {
+  summary: SplitSummary;
+  remainingCount: number;
+}) {
+  const justinPays = summary.justinPaysJared >= 0;
+
+  return (
+    <div className="border-t border-blue-100 bg-blue-50/80 px-4 py-4 xl:flex xl:items-center xl:justify-between xl:gap-8 xl:px-6">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-blue">
+          On target
+        </p>
+        <p className="mt-1 text-sm leading-relaxed text-gray-600">
+          If every job in this range finishes and no more expenses are added.
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-gray-500">
+          {remainingCount === 0
+            ? "Every job in this range is already finished."
+            : `${remainingCount} ${remainingCount === 1 ? "job" : "jobs"} still to finish.`}{" "}
+          On-target job total {formatCurrency(summary.gross)}. Each half{" "}
+          {formatCurrency(summary.ownerNet)}.
+        </p>
+      </div>
+      <div className="mt-3 shrink-0 xl:mt-0 xl:text-right">
+        <p className="text-sm font-medium text-gray-600">
+          {justinPays ? "Justin pays Jared" : "Jared pays Justin"}
+        </p>
+        <p className="text-3xl font-bold tabular-nums text-brand-black">
+          {formatCurrency(Math.abs(summary.justinPaysJared))}
+        </p>
+      </div>
     </div>
   );
 }

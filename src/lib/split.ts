@@ -57,6 +57,12 @@ function inRange(date: string, from: string, to: string) {
   return date >= from && date <= to;
 }
 
+function jobsInRange(jobs: Job[], range: DateRange, include: (job: Job) => boolean) {
+  return jobs
+    .filter((job) => include(job) && inRange(getJobDateOnly(job.jobDate), range.from, range.to))
+    .sort((a, b) => getJobDateOnly(b.jobDate).localeCompare(getJobDateOnly(a.jobDate)));
+}
+
 export interface SplitSummary {
   jobCount: number;
   gross: number;
@@ -76,25 +82,13 @@ export interface SplitSummary {
   expenses: Expense[];
 }
 
-export function computeSplit(
-  jobs: Job[],
-  expenses: Expense[],
-  range: DateRange,
-): SplitSummary {
-  const completed = jobs
-    .filter(
-      (job) =>
-        job.status === "Completed" &&
-        inRange(getJobDateOnly(job.jobDate), range.from, range.to),
-    )
-    .sort((a, b) => getJobDateOnly(b.jobDate).localeCompare(getJobDateOnly(a.jobDate)));
-
+function summarize(includedJobs: Job[], expenses: Expense[], range: DateRange): SplitSummary {
   const rangedExpenses = expenses
     .filter((expense) => inRange(getJobDateOnly(expense.date), range.from, range.to))
     .sort((a, b) => getJobDateOnly(b.date).localeCompare(getJobDateOnly(a.date)));
 
   // Job totals only. Whether the customer has paid is ignored on purpose.
-  const gross = completed.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
+  const gross = includedJobs.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
   const expensesTotal = rangedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const paidByJared = rangedExpenses
     .filter((expense) => expense.paidBy === "Jared")
@@ -114,7 +108,7 @@ export function computeSplit(
   const justinPaysJared = justinOwesJared - jaredOwesJustin;
 
   return {
-    jobCount: completed.length,
+    jobCount: includedJobs.length,
     gross,
     expensesTotal,
     ownerExpenses: expensesTotal / 2,
@@ -125,7 +119,35 @@ export function computeSplit(
     jaredOwesJustin,
     justinOwesJared,
     justinPaysJared,
-    jobs: completed,
+    jobs: includedJobs,
     expenses: rangedExpenses,
   };
+}
+
+export function computeSplit(
+  jobs: Job[],
+  expenses: Expense[],
+  range: DateRange,
+): SplitSummary {
+  return summarize(
+    jobsInRange(jobs, range, (job) => job.status === "Completed"),
+    expenses,
+    range,
+  );
+}
+
+/**
+ * Projected split for the same date range if every job that is not cancelled
+ * finishes at its current price and no further expenses are added.
+ */
+export function computeOnTarget(
+  jobs: Job[],
+  expenses: Expense[],
+  range: DateRange,
+): SplitSummary {
+  return summarize(
+    jobsInRange(jobs, range, (job) => job.status !== "Cancelled"),
+    expenses,
+    range,
+  );
 }
