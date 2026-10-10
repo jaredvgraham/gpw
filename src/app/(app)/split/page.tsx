@@ -12,7 +12,9 @@ import {
   computeOnTarget,
   computeSplit,
   getPresetRange,
+  settlementFigures,
   SPLIT_PRESETS,
+  type SettlementFigures,
   type SplitPreset,
   type SplitSummary,
 } from "@/lib/split";
@@ -137,8 +139,8 @@ export default function SplitPage() {
   }
 
   const loading = (jobsLoading && jobs.length === 0) || expensesLoading;
-
-  const justinPays = !summary || summary.justinPaysJared >= 0;
+  const settlement = summary ? settlementFigures(summary) : null;
+  const justinPays = !settlement || settlement.jaredPayout >= 0;
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-2xl overflow-x-hidden overscroll-x-none xl:max-w-none">
@@ -200,7 +202,7 @@ export default function SplitPage() {
         <p className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           The start date needs to be on or before the end date.
         </p>
-      ) : loading || !summary ? (
+      ) : loading || !summary || !settlement ? (
         <LoadingSpinner />
       ) : (
         <div className="space-y-4">
@@ -226,7 +228,7 @@ export default function SplitPage() {
                 </div>
               </div>
               <p className="mt-3 text-3xl font-bold tabular-nums text-brand-blue xl:mt-0 xl:text-5xl">
-                {formatCurrency(Math.abs(summary.justinPaysJared))}
+                {formatCurrency(Math.abs(settlement.jaredPayout))}
               </p>
             </div>
 
@@ -237,59 +239,7 @@ export default function SplitPage() {
               />
             )}
 
-            <div className="border-t border-brand-border px-4 py-3 xl:hidden">
-              <AmountRow label="Job total" value={formatCurrency(summary.gross)} />
-              <AmountRow
-                label="Expenses"
-                sign="−"
-                value={formatCurrency(summary.expensesTotal)}
-              />
-              <p className="py-1 text-sm text-gray-500">
-                Jared paid {formatCurrency(summary.paidByJared)}. Justin paid{" "}
-                {formatCurrency(summary.paidByJustin)}.
-              </p>
-              <AmountRow label="Net" sign="=" value={formatCurrency(summary.net)} rule />
-              <p className="grid grid-cols-[1fr_7.25rem] items-baseline gap-3 py-1.5 text-sm">
-                <span className="text-gray-700">
-                  {formatCurrency(summary.net)} ÷ 2
-                </span>
-                <span className="text-right font-semibold tabular-nums text-brand-black">
-                  {formatCurrency(summary.ownerNet)}
-                </span>
-              </p>
-            </div>
-
-            <div className="hidden border-t border-brand-border xl:grid xl:grid-cols-4 xl:divide-x xl:divide-brand-border">
-              <SplitTile label="Job total" value={formatCurrency(summary.gross)} />
-              <SplitTile
-                label="Expenses"
-                sign="−"
-                value={formatCurrency(summary.expensesTotal)}
-                detail={`Jared paid ${formatCurrency(summary.paidByJared)}. Justin paid ${formatCurrency(summary.paidByJustin)}.`}
-              />
-              <SplitTile label="Net" sign="=" value={formatCurrency(summary.net)} />
-              <SplitTile
-                label="Each half"
-                value={formatCurrency(summary.ownerNet)}
-                detail={`${formatCurrency(summary.net)} ÷ 2`}
-              />
-            </div>
-
-            <div className="xl:grid xl:grid-cols-2 xl:divide-x xl:divide-brand-border">
-            <PersonSplit
-              name="Jared"
-              shouldFinish={summary.ownerNet}
-              isAt={-summary.paidByJared}
-            />
-            <PersonSplit
-              name="Justin"
-              shouldFinish={summary.ownerNet}
-              isAt={summary.gross - summary.paidByJustin}
-            />
-            </div>
-            <p className="border-t border-brand-border px-4 py-3 text-sm leading-relaxed text-gray-500">
-              Expenses stay in the total above. This only moves each of them onto their half.
-            </p>
+            <SettlementMath figures={settlement} />
           </section>
 
           <div className="space-y-4 xl:grid xl:grid-cols-3 xl:items-start xl:gap-4 xl:space-y-0">
@@ -496,70 +446,75 @@ function OnTarget({
   );
 }
 
-function PersonSplit({
-  name,
-  shouldFinish,
-  isAt,
-}: {
-  name: string;
-  shouldFinish: number;
-  isAt: number;
-}) {
-  const difference = shouldFinish - isAt;
+function SettlementMath({ figures }: { figures: SettlementFigures }) {
+  const {
+    gross,
+    expenses,
+    net,
+    each,
+    jaredPaid,
+    justinPaid,
+    jaredPayout,
+    justinKeeps,
+    jaredFinal,
+    balanced,
+  } = figures;
 
   return (
-    <div className="border-t border-brand-border px-4 py-3">
-      <p className="py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{name}</p>
-      <AmountRow label="Is at" value={formatCurrency(isAt)} />
-      <AmountRow label="Should finish at" value={formatCurrency(shouldFinish)} />
-      <AmountRow label="Difference" sign="=" value={formatCurrency(difference)} rule />
-    </div>
-  );
-}
-
-function SplitTile({
-  label,
-  value,
-  sign,
-  detail,
-}: {
-  label: string;
-  value: string;
-  sign?: string;
-  detail?: string;
-}) {
-  return (
-    <div className="px-5 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums text-brand-black">
-        {sign && <span className="mr-1.5 text-base font-semibold text-gray-400">{sign}</span>}
-        {value}
-      </p>
-      {detail && <p className="mt-1 text-xs leading-relaxed text-gray-500">{detail}</p>}
-    </div>
-  );
-}
-
-function AmountRow({
-  label,
-  value,
-  sign,
-  rule = false,
-}: {
-  label: string;
-  value: string;
-  sign?: string;
-  rule?: boolean;
-}) {
-  return (
-    <div className={rule ? "mt-1 border-t border-brand-border pt-2" : undefined}>
-      <div className="grid grid-cols-[1fr_7.25rem] items-baseline gap-3 py-1.5">
-        <span className="text-gray-700">{label}</span>
-        <span className="text-right tabular-nums text-gray-800">
-          {sign && <span className="mr-2 text-gray-400">{sign}</span>}
-          {value}
-        </span>
+    <div className="space-y-5 border-t border-brand-border px-4 py-4 xl:px-6 xl:py-5">
+      <div className="max-w-xl space-y-1.5 text-base font-medium leading-snug tabular-nums text-brand-black">
+        <p>
+          {formatCurrency(gross)} − {formatCurrency(expenses)} = {formatCurrency(net)}
+        </p>
+        <p>
+          {formatCurrency(net)} ÷ 2 = {formatCurrency(each)} each
+        </p>
       </div>
+
+      <div className="space-y-0.5 text-sm text-gray-600">
+        <p>Jared paid {formatCurrency(jaredPaid)}</p>
+        <p>Justin paid {formatCurrency(justinPaid)}</p>
+      </div>
+
+      <div className="max-w-xl space-y-4">
+        <EquationLine
+          label="Jared"
+          left={`${formatCurrency(each)} + ${formatCurrency(jaredPaid)}`}
+          result={formatCurrency(jaredPayout)}
+        />
+        <EquationLine
+          label="Justin"
+          left={`${formatCurrency(gross)} − ${formatCurrency(justinPaid)} − ${formatCurrency(jaredPayout)}`}
+          result={formatCurrency(justinKeeps)}
+        />
+      </div>
+
+      <div className="max-w-xl border-t border-brand-border pt-4">
+        <p className="text-sm font-bold text-brand-black">Final</p>
+        <ul className="mt-2 space-y-1.5 text-sm leading-snug tabular-nums text-gray-800">
+          <li>
+            <span className="font-bold text-brand-black">Jared:</span> {formatCurrency(jaredPayout)} −{" "}
+            {formatCurrency(jaredPaid)} = {formatCurrency(jaredFinal)}
+          </li>
+          <li>
+            <span className="font-bold text-brand-black">Justin:</span> {formatCurrency(justinKeeps)}
+          </li>
+        </ul>
+        {balanced && (
+          <p className="mt-3 text-sm text-gray-500">Exactly 50/50 after all expenses.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EquationLine({ label, left, result }: { label: string; left: string; result: string }) {
+  return (
+    <div>
+      <p className="text-sm font-bold text-brand-black">{label}</p>
+      <p className="mt-0.5 text-sm leading-snug tabular-nums text-gray-800">
+        {left} = <span className="font-semibold text-brand-black">{result}</span>
+      </p>
     </div>
   );
 }

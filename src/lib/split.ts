@@ -82,6 +82,56 @@ export interface SplitSummary {
   expenses: Expense[];
 }
 
+export interface SettlementFigures {
+  gross: number;
+  expenses: number;
+  net: number;
+  each: number;
+  jaredPaid: number;
+  justinPaid: number;
+  /** Jared's half plus the expenses he already paid. Justin sends this from the checks. */
+  jaredPayout: number;
+  /** What Justin has left after his expenses and Jared's payout. */
+  justinKeeps: number;
+  jaredFinal: number;
+  /** Both owners finish on the same amount. */
+  balanced: boolean;
+}
+
+function toCents(amount: number) {
+  return Math.round(amount * 100);
+}
+
+function fromCents(cents: number) {
+  return cents / 100;
+}
+
+/** The on-screen settlement, in cents, so each line of the equation adds up. */
+export function settlementFigures(summary: SplitSummary): SettlementFigures {
+  const gross = toCents(summary.gross);
+  const expenses = toCents(summary.expensesTotal);
+  const net = gross - expenses;
+  const each = Math.round(net / 2);
+  const jaredPaid = toCents(summary.paidByJared);
+  const justinPaid = toCents(summary.paidByJustin);
+  const jaredPayout = each + jaredPaid;
+  const justinKeeps = gross - justinPaid - jaredPayout;
+  const jaredFinal = jaredPayout - jaredPaid;
+
+  return {
+    gross: fromCents(gross),
+    expenses: fromCents(expenses),
+    net: fromCents(net),
+    each: fromCents(each),
+    jaredPaid: fromCents(jaredPaid),
+    justinPaid: fromCents(justinPaid),
+    jaredPayout: fromCents(jaredPayout),
+    justinKeeps: fromCents(justinKeeps),
+    jaredFinal: fromCents(jaredFinal),
+    balanced: jaredFinal === justinKeeps,
+  };
+}
+
 function summarize(includedJobs: Job[], expenses: Expense[], range: DateRange): SplitSummary {
   const rangedExpenses = expenses
     .filter((expense) => inRange(getJobDateOnly(expense.date), range.from, range.to))
