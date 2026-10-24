@@ -727,6 +727,81 @@ body {
   }
 }
 
+/* Instant press feedback. The tint shows on touch-down; [data-pending] keeps it
+   until navigation or the request finishes, instead of waiting on the server. */
+a,
+button,
+[role="button"],
+summary,
+.fc-daygrid-day,
+.fc-list-event,
+.fc-event {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button,
+[role="button"],
+summary {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:is(a, button, [role="button"], summary, .fc-daygrid-day, .fc-list-event, .fc-event):is(
+    :active,
+    [data-pressed],
+    [data-pending]
+  ) {
+  background-image: linear-gradient(rgba(17, 24, 39, 0.16), rgba(17, 24, 39, 0.16)) !important;
+  transition: none !important;
+}
+
+@media (hover: none), (pointer: coarse) {
+  :is(button, [role="button"], summary):is(:active, [data-pressed]) {
+    transform: scale(0.97);
+  }
+}
+
+html[data-touch] :is(button, [role="button"], summary):is(:active, [data-pressed]) {
+  transform: scale(0.97);
+}
+
+button[data-pending="busy"] {
+  position: relative;
+}
+
+button[data-pending="busy"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-top: -0.475rem;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-bottom-color: transparent;
+  animation: gpw-spin 0.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes gpw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(button, [role="button"], summary):is(:active, [data-pressed]) {
+    transform: none;
+  }
+
+  button[data-pending="busy"]::after {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
 /* iOS Safari zooms focused inputs below 16px — keep form fields at 1rem on mobile */
 @media (max-width: 767px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
+import TapFeedback from "@/components/pwa/TapFeedback";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body className="min-h-full max-md:overflow-hidden">
         {children}
         <ServiceWorkerRegistration />
+        <TapFeedback />
       </body>
     </html>
   );

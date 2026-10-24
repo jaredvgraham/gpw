@@ -64,8 +64,10 @@ export default function MobileMenu({
               <Link
                 key={href}
                 href={href}
-                onClick={onClose}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ${
+                onClick={() => {
+                  if (active) onClose();
+                }}
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium touch-manipulation ${
                   active
                     ? "bg-brand-blue text-white"
                     : "text-gray-700 active:bg-brand-gray"
