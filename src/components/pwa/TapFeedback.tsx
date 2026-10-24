@@ -113,12 +113,13 @@ function installFetchTracker() {
     try {
       return await original(input, init);
     } finally {
-      if (!tracked) return;
-      tracked.fetches = Math.max(0, tracked.fetches - 1);
-      if (tracked.fetches === 0 && tapState().arm === tracked) {
-        window.setTimeout(() => {
-          if (tapState().arm === tracked && tracked.fetches === 0) clearArm(tracked);
-        }, 120);
+      if (tracked) {
+        tracked.fetches = Math.max(0, tracked.fetches - 1);
+        if (tracked.fetches === 0 && tapState().arm === tracked) {
+          window.setTimeout(() => {
+            if (tapState().arm === tracked && tracked.fetches === 0) clearArm(tracked);
+          }, 120);
+        }
       }
     }
   }) as typeof window.fetch & { __gpw?: boolean };
