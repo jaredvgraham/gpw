@@ -9,6 +9,7 @@ import Customer from "@/models/Customer";
 import Job from "@/models/Job";
 import { jobSchema } from "@/lib/validations";
 import { ensureHouseholdForCustomer } from "@/lib/household";
+import { syncLeadBookings } from "@/lib/sync-lead-bookings";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -100,6 +101,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!job) {
       return apiError("Job not found", 404);
     }
+
+    await syncLeadBookings();
 
     return apiSuccess(job);
   } catch (error) {

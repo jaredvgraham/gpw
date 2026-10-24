@@ -22,6 +22,8 @@ export interface ILead {
   name: string;
   phone: string;
   email?: string;
+  /** Street line from the inquiry form. Town stays separate. */
+  address?: string;
   town: string;
   howYouFoundUs?: string;
   services: string[];
@@ -31,6 +33,8 @@ export interface ILead {
   status: LeadStatus;
   source: LeadSource;
   customer?: Types.ObjectId;
+  /** Job that booked this lead, when the address or phone matched. */
+  job?: Types.ObjectId;
   notes?: string;
   /** Set when imported from legacy Firestore quotes */
   firestoreId?: string;
@@ -43,6 +47,7 @@ const LeadSchema = new Schema<ILead>(
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, trim: true, index: true },
     email: { type: String, trim: true },
+    address: { type: String, trim: true },
     town: { type: String, required: true, trim: true, index: true },
     howYouFoundUs: { type: String, trim: true },
     services: { type: [String], default: [] },
@@ -62,6 +67,7 @@ const LeadSchema = new Schema<ILead>(
       index: true,
     },
     customer: { type: Schema.Types.ObjectId, ref: "Customer", index: true },
+    job: { type: Schema.Types.ObjectId, ref: "Job" },
     notes: { type: String, trim: true },
     firestoreId: { type: String, trim: true, sparse: true, unique: true },
   },
@@ -71,7 +77,10 @@ const LeadSchema = new Schema<ILead>(
 LeadSchema.index({ createdAt: -1 });
 LeadSchema.index({ status: 1, createdAt: -1 });
 
-const Lead: Model<ILead> =
-  mongoose.models.Lead ?? mongoose.model<ILead>("Lead", LeadSchema);
+if (mongoose.models.Lead) {
+  mongoose.deleteModel("Lead");
+}
+
+const Lead: Model<ILead> = mongoose.model<ILead>("Lead", LeadSchema);
 
 export default Lead;

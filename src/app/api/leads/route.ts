@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { requireApiAuth } from "@/lib/api-auth";
 import { apiError, apiSuccess } from "@/lib/api";
 import Lead, { LEAD_STATUSES } from "@/models/Lead";
+import { syncLeadBookings } from "@/lib/sync-lead-bookings";
 
 export async function GET(request: NextRequest) {
   const authError = await requireApiAuth(request);
@@ -10,6 +11,7 @@ export async function GET(request: NextRequest) {
 
   try {
     await connectDB();
+    await syncLeadBookings();
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
@@ -26,6 +28,7 @@ export async function GET(request: NextRequest) {
         { name: { $regex: search, $options: "i" } },
         { phone: { $regex: search, $options: "i" } },
         { town: { $regex: search, $options: "i" } },
+        { address: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
     }

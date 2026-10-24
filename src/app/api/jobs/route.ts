@@ -9,6 +9,7 @@ import Customer from "@/models/Customer";
 import Job from "@/models/Job";
 import { jobSchema } from "@/lib/validations";
 import { ensureHouseholdForCustomer } from "@/lib/household";
+import { syncLeadBookings } from "@/lib/sync-lead-bookings";
 
 export async function GET(request: NextRequest) {
   const authError = await requireApiAuth(request);
@@ -126,6 +127,8 @@ export async function POST(request: NextRequest) {
     const populated = await Job.findById(job._id)
       .populate(jobCustomerPopulate)
       .populate("services.service");
+
+    await syncLeadBookings();
 
     return apiSuccess(populated, 201);
   } catch (error) {

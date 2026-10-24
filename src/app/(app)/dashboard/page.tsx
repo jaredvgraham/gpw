@@ -25,6 +25,7 @@ import TopCustomersList from "@/components/dashboard/TopCustomersList";
 import QuarterlyChart from "@/components/dashboard/QuarterlyChart";
 import InsightsBreadcrumb from "@/components/dashboard/InsightsBreadcrumb";
 import GrossNetSection from "@/components/dashboard/GrossNetSection";
+import OwnerBoard from "@/components/dashboard/OwnerBoard";
 import InsightsHero from "@/components/dashboard/InsightsHero";
 import ChartCard from "@/components/dashboard/ChartCard";
 import {
@@ -47,7 +48,8 @@ import { STATUS_COLORS } from "@/lib/constants";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { useAppData } from "@/contexts/AppDataContext";
 import { getJobDateOnly } from "@/lib/dates";
-import type { Expense } from "@/types";
+import { computeOwnerSnapshot } from "@/lib/owner-metrics";
+import type { Expense, Lead } from "@/types";
 
 export default function DashboardPage() {
   const { openNewJob } = useJobModals();
@@ -65,6 +67,8 @@ export default function DashboardPage() {
   const [rangeEnd, setRangeEnd] = useState(() => format(endOfMonth(now), "yyyy-MM-dd"));
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expensesReady, setExpensesReady] = useState(false);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadsReady, setLeadsReady] = useState(false);
 
   const insights = useMemo(
     () =>
@@ -111,6 +115,14 @@ export default function DashboardPage() {
     [jobs, expenses, profitRange]
   );
 
+  const ownerSnapshot = useMemo(
+    () =>
+      expensesReady && leadsReady
+        ? computeOwnerSnapshot(jobs, leads, expenses, profitRange.from, profitRange.to)
+        : null,
+    [jobs, leads, expenses, expensesReady, leadsReady, profitRange]
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -126,6 +138,22 @@ export default function DashboardPage() {
       })
       .catch((error) => {
         console.error(error);
+        if (!cancelled) setExpensesReady(true);
+      });
+
+    fetch("/api/leads")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load leads");
+        return response.json() as Promise<Lead[]>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setLeads(Array.isArray(data) ? data : []);
+        setLeadsReady(true);
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) setLeadsReady(true);
       });
 
     return () => {
@@ -187,7 +215,7 @@ export default function DashboardPage() {
     <div className="pb-8">
       <PageHeader
         title="Business Insights"
-        description="Revenue, expenses, and job performance"
+        description="Revenue, expenses, and where the work came from"
         action={
           <button
             type="button"
@@ -257,6 +285,8 @@ export default function DashboardPage() {
         net={profit.net}
         expensesReady={expensesReady}
       />
+
+      <OwnerBoard snapshot={ownerSnapshot} leadsReady={leadsReady} />
 
       {view === "year" && (
         <div className="space-y-6">

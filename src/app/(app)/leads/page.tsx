@@ -11,9 +11,18 @@ const STATUS_OPTIONS: { value: "" | LeadStatus; label: string }[] = [
   { value: "", label: "All statuses" },
   { value: "new", label: "New" },
   { value: "contacted", label: "Contacted" },
-  { value: "converted", label: "Converted" },
+  { value: "converted", label: "Booked" },
   { value: "lost", label: "Lost" },
 ];
+
+function statusLabel(status: LeadStatus): string {
+  if (status === "converted") return "Booked";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function leadPlace(lead: Lead): string {
+  return lead.address ? `${lead.address}, ${lead.town}` : lead.town;
+}
 
 const STATUS_STYLES: Record<LeadStatus, string> = {
   new: "bg-blue-50 text-blue-700 border-blue-200",
@@ -83,7 +92,7 @@ export default function LeadsPage() {
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-3xl lg:grid-cols-[1fr_14rem]">
         <Input
           label="Search"
-          placeholder="Name, phone, town..."
+          placeholder="Name, phone, address..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -146,7 +155,7 @@ export default function LeadsPage() {
                     </div>
                     <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-500">
                       <MapPin className="h-3 w-3" />
-                      {lead.town}
+                      {leadPlace(lead)}
                     </p>
                   </td>
                   <td className="px-4 py-2.5 text-gray-700">
@@ -160,8 +169,8 @@ export default function LeadsPage() {
                     {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : ""}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[lead.status]}`}>
-                      {lead.status}
+                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[lead.status]}`}>
+                      {statusLabel(lead.status)}
                     </span>
                   </td>
                 </tr>
@@ -192,9 +201,9 @@ export default function LeadsPage() {
                       {lead.name}
                     </h2>
                     <span
-                      className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[lead.status]}`}
+                      className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[lead.status]}`}
                     >
-                      {lead.status}
+                      {statusLabel(lead.status)}
                     </span>
                     {lead.source === "meta_ad" && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
@@ -206,7 +215,7 @@ export default function LeadsPage() {
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
                     <span className="inline-flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5" />
-                      {lead.town}
+                      {leadPlace(lead)}
                     </span>
                     <a
                       href={`tel:${lead.phone}`}
@@ -305,7 +314,7 @@ function LeadDetail({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-brand-black">{lead.name}</h2>
-          <p className="mt-1 text-sm text-gray-500">{lead.town}</p>
+          <p className="mt-1 text-sm text-gray-500">{leadPlace(lead)}</p>
         </div>
         {lead.source === "meta_ad" && (
           <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
@@ -346,7 +355,7 @@ function LeadDetail({
         )}
         <p className="flex items-center gap-2 text-gray-600">
           <MapPin className="h-4 w-4 text-gray-400" />
-          {lead.town}
+          {leadPlace(lead)}
         </p>
       </div>
 

@@ -67,6 +67,7 @@ export interface Lead {
   name: string;
   phone: string;
   email?: string;
+  address?: string;
   town: string;
   howYouFoundUs?: string;
   services: string[];
@@ -76,6 +77,7 @@ export interface Lead {
   status: LeadStatus;
   source: LeadSource;
   customer?: string;
+  job?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
