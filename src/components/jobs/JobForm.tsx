@@ -2,7 +2,7 @@
 
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "@/components/ui/Input";
 import Textarea from "@/components/ui/Textarea";
@@ -14,7 +14,7 @@ import { findJobTimeConflict, timeToMinutes } from "@/lib/job-scheduling";
 import { jobSchema } from "@/lib/validations";
 import type { z } from "zod";
 import { JOB_STATUSES, type JobStatus } from "@/lib/constants";
-import type { Job, Service, Customer } from "@/types";
+import type { Job, Lead, Service, Customer } from "@/types";
 import { getJobDuration } from "@/lib/utils";
 import { sortServicesForDisplay } from "@/lib/services";
 import { useAppData } from "@/contexts/AppDataContext";
@@ -30,6 +30,104 @@ interface JobFormProps {
   inModal?: boolean;
   onSuccess?: (job: Job) => void;
   onCancel?: () => void;
+}
+
+type LeadField = "name" | "phone" | "streetAddress" | "city";
+
+function leadQueryReady(field: LeadField, query: string): boolean {
+  if (field === "phone") return query.replace(/\D/g, "").length >= 3;
+  return query.trim().length >= 2;
+}
+
+function leadMatchesField(lead: Lead, field: LeadField, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (field === "phone") {
+    const digits = q.replace(/\D/g, "");
+    return lead.phone.replace(/\D/g, "").includes(digits);
+  }
+  if (field === "name") return lead.name.toLowerCase().includes(q);
+  if (field === "streetAddress") return (lead.address ?? "").toLowerCase().includes(q);
+  return lead.town.toLowerCase().includes(q);
+}
+
+function matchLeadService(label: string, catalog: Service[]): Service | null {
+  const text = label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const rules: [RegExp, string][] = [
+    [/\bhouse\b/, "House wash"],
+    [/\bwindow/, "Window cleaning"],
+    [/\broof\b/, "Roof wash"],
+    [/\bdriveway\b/, "Driveway cleaning"],
+    [/\bpatio\b/, "Patio cleaning"],
+    [/\bwalkway\b/, "Walkway cleaning"],
+    [/\bfence\b/, "Fence cleaning"],
+    [/\bgutter\b/, "Gutter cleaning"],
+    [/\bstone\b/, "Stone walls"],
+    [/\bfront deck\b/, "Front deck"],
+    [/\bback deck\b/, "Back deck"],
+  ];
+  for (const [pattern, name] of rules) {
+    if (!pattern.test(text)) continue;
+    return catalog.find((service) => service.name === name) ?? null;
+  }
+  return catalog.find((service) => service.name.toLowerCase() === text && service.name !== "Other") ?? null;
+}
+
+function servicesFromLead(lead: Lead, catalog: Service[]) {
+  const matched: Service[] = [];
+  const unmatched: string[] = [];
+  for (const label of lead.services) {
+    const service = matchLeadService(label, catalog);
+    if (service) {
+      if (!matched.some((item) => item._id === service._id)) matched.push(service);
+    } else if (label.trim()) {
+      unmatched.push(label.trim());
+    }
+  }
+  const rows = matched.map((service) => ({
+    service: service._id,
+    name: service.name,
+    customServiceName: "",
+    notes: "",
+  }));
+  const other = catalog.find((service) => service.name === "Other");
+  if (other && unmatched.length > 0) {
+    rows.push({
+      service: other._id,
+      name: other.name,
+      customServiceName: unmatched.join(", "),
+      notes: "",
+    });
+  }
+  return rows;
+}
+
+function leadPlace(lead: Lead): string {
+  return lead.address ? `${lead.address}, ${lead.town}` : lead.town;
+}
+
+function LeadMatchList({ matches, onPick }: { matches: Lead[]; onPick: (lead: Lead) => void }) {
+  if (matches.length === 0) return null;
+  return (
+    <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-brand-border bg-white shadow-lg">
+      {matches.map((lead) => (
+        <li key={lead._id}>
+          <button
+            type="button"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => onPick(lead)}
+            className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left active:bg-brand-gray"
+          >
+            <span className="text-sm font-semibold text-brand-black">{lead.name}</span>
+            <span className="text-xs text-gray-500">
+              {lead.phone}
+              {" · "}
+              {leadPlace(lead)}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function SectionLabel({
@@ -68,6 +166,10 @@ export default function JobForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [scheduleConflict, setScheduleConflict] = useState<string | null>(null);
+  const [leadFocus, setLeadFocus] = useState<LeadField | null>(null);
+  const [leadMatchesOpen, setLeadMatchesOpen] = useState(false);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const hideLeadMatches = useRef<number | null>(null);
 
   const customer =
     (job && typeof job.customer === "object" ? (job.customer as Customer) : null) ??
@@ -112,12 +214,98 @@ export default function JobForm({
     },
   });
 
-  const { append, remove } = useFieldArray({ control, name: "services" });
+  const { append, remove, replace } = useFieldArray({ control, name: "services" });
   const jobDate = watch("jobDate");
   const startTime = watch("startTime");
   const endTime = watch("endTime");
   const selectedServices = watch("services");
   const isPaid = watch("paid");
+  const customerName = watch("customer.name") ?? "";
+  const customerPhone = watch("customer.phone") ?? "";
+  const customerStreet = watch("customer.streetAddress") ?? "";
+  const customerCity = watch("customer.city") ?? "";
+
+  useEffect(() => {
+    if (isEditing) return;
+    let cancelled = false;
+    fetch("/api/leads")
+      .then(async (response) => {
+        if (!response.ok) return [];
+        return response.json() as Promise<Lead[]>;
+      })
+      .then((data) => {
+        if (!cancelled) setLeads(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setLeads([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing]);
+
+  const leadQuery =
+    leadFocus === "name"
+      ? customerName
+      : leadFocus === "phone"
+        ? customerPhone
+        : leadFocus === "streetAddress"
+          ? customerStreet
+          : leadFocus === "city"
+            ? customerCity
+            : "";
+
+  const leadMatches = useMemo(() => {
+    if (isEditing || !leadFocus || !leadMatchesOpen || !leadQueryReady(leadFocus, leadQuery)) return [];
+    return leads.filter((lead) => leadMatchesField(lead, leadFocus, leadQuery)).slice(0, 6);
+  }, [isEditing, leadFocus, leadMatchesOpen, leadQuery, leads]);
+
+  function showLeadMatches(field: LeadField) {
+    if (hideLeadMatches.current) window.clearTimeout(hideLeadMatches.current);
+    setLeadFocus(field);
+    setLeadMatchesOpen(true);
+  }
+
+  function applyLead(lead: Lead) {
+    setValue("customer.name", lead.name, { shouldDirty: true, shouldValidate: true });
+    setValue("customer.phone", lead.phone, { shouldDirty: true, shouldValidate: true });
+    setValue("customer.email", lead.email ?? "", { shouldDirty: true });
+    setValue("customer.streetAddress", lead.address ?? "", { shouldDirty: true, shouldValidate: true });
+    setValue("customer.city", lead.town, { shouldDirty: true, shouldValidate: true });
+    const rows = servicesFromLead(lead, orderedServices);
+    if (rows.length > 0) replace(rows);
+    const note = [lead.message?.trim(), lead.squareFootage?.trim() ? `About ${lead.squareFootage.trim()} sq ft` : ""]
+      .filter(Boolean)
+      .join("\n");
+    if (note && !watch("internalNotes")?.trim()) {
+      setValue("internalNotes", note, { shouldDirty: true });
+    }
+    setLeadMatchesOpen(false);
+  }
+
+  function leadFieldProps(field: LeadField) {
+    const registration = register(
+      field === "name"
+        ? "customer.name"
+        : field === "phone"
+          ? "customer.phone"
+          : field === "streetAddress"
+            ? "customer.streetAddress"
+            : "customer.city"
+    );
+    return {
+      ...registration,
+      onFocus: () => showLeadMatches(field),
+      onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+        showLeadMatches(field);
+        registration.onChange(event);
+      },
+      onBlur: (event: React.FocusEvent<HTMLInputElement>) => {
+        registration.onBlur(event);
+        hideLeadMatches.current = window.setTimeout(() => setLeadMatchesOpen(false), 180);
+      },
+    };
+  }
 
   const dayJobs = useMemo(() => {
     if (!jobDate) return [];
@@ -301,21 +489,29 @@ export default function JobForm({
           <section>
             <SectionLabel icon={User}>Customer</SectionLabel>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="Name"
-                required
-                placeholder="John Smith"
-                {...register("customer.name")}
-                error={errors.customer?.name?.message}
-              />
-              <Input
-                label="Phone"
-                required
-                type="tel"
-                placeholder="(555) 123-4567"
-                {...register("customer.phone")}
-                error={errors.customer?.phone?.message}
-              />
+              <div className="relative">
+                <Input
+                  label="Name"
+                  required
+                  placeholder="John Smith"
+                  autoComplete="off"
+                  {...leadFieldProps("name")}
+                  error={errors.customer?.name?.message}
+                />
+                {leadFocus === "name" && <LeadMatchList matches={leadMatches} onPick={applyLead} />}
+              </div>
+              <div className="relative">
+                <Input
+                  label="Phone"
+                  required
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  autoComplete="off"
+                  {...leadFieldProps("phone")}
+                  error={errors.customer?.phone?.message}
+                />
+                {leadFocus === "phone" && <LeadMatchList matches={leadMatches} onPick={applyLead} />}
+              </div>
               <Input
                 label="Email"
                 type="email"
@@ -333,21 +529,28 @@ export default function JobForm({
           <section>
             <SectionLabel icon={MapPin}>Job location</SectionLabel>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="Street address"
-                required
-                placeholder="123 Main St"
-                className="sm:col-span-2"
-                {...register("customer.streetAddress")}
-                error={errors.customer?.streetAddress?.message}
-              />
-              <Input
-                label="Town / city"
-                required
-                placeholder="Springfield"
-                {...register("customer.city")}
-                error={errors.customer?.city?.message}
-              />
+              <div className="relative sm:col-span-2">
+                <Input
+                  label="Street address"
+                  required
+                  placeholder="123 Main St"
+                  autoComplete="off"
+                  {...leadFieldProps("streetAddress")}
+                  error={errors.customer?.streetAddress?.message}
+                />
+                {leadFocus === "streetAddress" && <LeadMatchList matches={leadMatches} onPick={applyLead} />}
+              </div>
+              <div className="relative">
+                <Input
+                  label="Town / city"
+                  required
+                  placeholder="Springfield"
+                  autoComplete="off"
+                  {...leadFieldProps("city")}
+                  error={errors.customer?.city?.message}
+                />
+                {leadFocus === "city" && <LeadMatchList matches={leadMatches} onPick={applyLead} />}
+              </div>
             </div>
           </section>
 
