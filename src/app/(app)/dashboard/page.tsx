@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Calendar, Clock } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { addDays, endOfMonth, endOfYear, format, startOfMonth, startOfYear } from "date-fns";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import RevenueBarChart from "@/components/dashboard/RevenueBarChart";
@@ -29,7 +29,6 @@ import {
   type RevenuePoint,
 } from "@/lib/dashboard-stats";
 import { STATUS_COLORS } from "@/lib/constants";
-import { useJobModals } from "@/contexts/JobModalContext";
 import { useAppData } from "@/contexts/AppDataContext";
 import { getJobDateOnly } from "@/lib/dates";
 import { computeOwnerSnapshot } from "@/lib/owner-metrics";
@@ -44,7 +43,6 @@ const REPORT_LENSES: { id: ReportLens; label: string }[] = [
 ];
 
 export default function DashboardPage() {
-  const { openNewJob } = useJobModals();
   const { jobs, jobsLoading } = useAppData();
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -155,6 +153,25 @@ export default function DashboardPage() {
   }, []);
 
   const { month, week, year } = insights;
+
+  const workDays = useMemo(() => {
+    const start = profitRange.from <= profitRange.to ? profitRange.from : profitRange.to;
+    const end = profitRange.from <= profitRange.to ? profitRange.to : profitRange.from;
+    const days = new Set<string>();
+    for (const job of jobs) {
+      if (job.status === "Cancelled") continue;
+      const date = getJobDateOnly(job.jobDate);
+      if (date >= start && date <= end) days.add(date);
+    }
+    return days.size;
+  }, [jobs, profitRange]);
+  const dailyStats =
+    expensesReady && workDays > 0
+      ? [
+          { value: formatCurrency(profit.gross / workDays), label: "gross / work day" },
+          { value: formatCurrency(profit.net / workDays), label: "net / work day" },
+        ]
+      : [];
 
   const statement =
     view === "week"
@@ -296,56 +313,27 @@ export default function DashboardPage() {
   return (
     <div className="phone-nav-inset flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
       <div className="max-md:contents md:mb-6 md:shrink-0 md:space-y-3 md:border-b md:border-black/6 md:pb-4">
-        <div className="mb-3 flex items-center justify-between gap-4 px-4 md:mb-4 md:px-0">
-          <h1 className="text-2xl font-bold tracking-tight text-brand-black">Reports</h1>
-          <button
-            type="button"
-            onClick={() => openNewJob()}
-            className="hidden items-center rounded-xl bg-brand-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 transition-colors md:inline-flex"
-          >
-            + Add Job
-          </button>
-        </div>
-
-        <div className="max-md:contents md:flex md:flex-col md:gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div
-            className="sticky top-0 z-20 mb-3 grid grid-cols-3 gap-1 border-b border-black/6 bg-white px-4 py-2 md:static md:mb-0 md:inline-flex md:border-0 md:bg-transparent md:px-0 md:py-0"
-            role="tablist"
-            aria-label="Report"
-          >
-            {REPORT_LENSES.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={lens === item.id}
-                onClick={() => setLens(item.id)}
-                className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                  lens === item.id
-                    ? "bg-brand-black text-white"
-                    : "text-gray-500 hover:text-brand-black"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="mb-3 flex flex-wrap gap-4 px-4 md:mb-0 md:px-0">
-            <Link
-              href="/today"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-brand-black"
+        <div
+          className="sticky top-0 z-20 mb-3 grid grid-cols-3 gap-1 border-b border-black/6 bg-white px-4 py-2 md:static md:mb-0 md:inline-flex md:border-0 md:bg-transparent md:px-0 md:py-0"
+          role="tablist"
+          aria-label="Report"
+        >
+          {REPORT_LENSES.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={lens === item.id}
+              onClick={() => setLens(item.id)}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                lens === item.id
+                  ? "bg-brand-black text-white"
+                  : "text-gray-500 hover:text-brand-black"
+              }`}
             >
-              <Calendar className="h-3.5 w-3.5" />
-              Today · {insights.todayJobs.length}
-            </Link>
-            <Link
-              href="/calendar"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-brand-black"
-            >
-              <Clock className="h-3.5 w-3.5" />
-              Tomorrow · {insights.tomorrowJobs.length}
-            </Link>
-          </div>
+              {item.label}
+            </button>
+          ))}
         </div>
         <div className="mb-6 flex flex-col gap-3 px-4 sm:flex-row sm:flex-wrap sm:items-center md:mb-0 md:px-0">
           <InsightsBreadcrumb
@@ -392,9 +380,9 @@ export default function DashboardPage() {
                 collected={statement.collected}
                 outstanding={statement.outstanding}
                 slices={ownerSnapshot?.expensesByType}
-                stats={statement.stats}
+                stats={[...dailyStats, ...statement.stats]}
               />
-              <div className="mt-6 border-t border-gray-100 pt-5">
+              <div className="mt-3">
                 <OwnerBoard part="money" snapshot={ownerSnapshot} leadsReady={leadsReady} />
               </div>
             </div>

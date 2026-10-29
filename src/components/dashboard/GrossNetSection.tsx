@@ -119,15 +119,21 @@ export default function GrossNetSection({
       ) : null}
 
       {stats.length > 0 ? (
-        <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-4">
-          {stats.map((stat) => (
-            <div key={stat.label}>
-              <dd className="text-lg font-semibold tabular-nums tracking-tight text-gray-950">
-                {stat.value}
-              </dd>
-              <dt className="text-sm text-gray-500">{stat.label}</dt>
-            </div>
-          ))}
+        <dl className="mt-6 grid grid-cols-2 overflow-hidden rounded-2xl border border-gray-200">
+          {stats.map((stat, index) => {
+            const lastAlone = stats.length % 2 === 1 && index === stats.length - 1;
+            return (
+              <div
+                key={stat.label}
+                className={`min-w-0 px-4 py-3.5 ${lastAlone ? "col-span-2" : index % 2 === 0 ? "border-r border-gray-100" : ""} ${index >= 2 ? "border-t border-gray-100" : ""}`}
+              >
+                <dt className="text-[13px] leading-snug text-gray-500">{stat.label}</dt>
+                <dd className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-gray-950">
+                  {stat.value}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       ) : null}
     </section>

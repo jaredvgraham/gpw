@@ -38,32 +38,32 @@ export default function OwnerBoard({
   if (part === "money") {
     if (!snapshot) return <p className="text-sm text-gray-500">Loading expenses…</p>;
     return (
-      <div className="grid grid-cols-2 gap-6">
-            <div>
-              <p className="text-sm text-gray-500">{adMultiple === null ? "Ad spend" : "Ad return"}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-950">
+      <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-gray-200">
+            <div className="min-w-0 border-r border-gray-100 px-4 py-3.5">
+              <p className="text-[13px] leading-snug text-gray-500">{adMultiple === null ? "Ad spend" : "Ad return"}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-gray-950">
                 {adMultiple === null ? money(snapshot.adSpend) : `${adMultiple.toFixed(1)}×`}
               </p>
               {adMultiple !== null ? (
-                <p className="mt-1 text-sm leading-snug text-gray-500">
+                <p className="mt-2 text-xs leading-snug text-gray-400">
                   {money(snapshot.adSpend)} spent · {money(snapshot.adRevenue)} in jobs
                 </p>
               ) : null}
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Gas, bleach, and ads</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-950">
+            <div className="min-w-0 px-4 py-3.5">
+              <p className="text-[13px] leading-snug text-gray-500">Gas, bleach, and ads</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-gray-950">
                 {jobCostPerJob === null ? (
                   money(jobCost)
                 ) : (
                   <>
                     {money(jobCostPerJob)}
-                    <span className="text-base font-medium text-gray-400"> / job</span>
+                    <span className="text-sm font-medium text-gray-400"> / job</span>
                   </>
                 )}
               </p>
               {jobCostPerJob !== null ? (
-                <p className="mt-1 text-sm leading-snug text-gray-500">
+                <p className="mt-2 text-xs leading-snug text-gray-400">
                   {money(jobCost)} · {snapshot.completedJobs} done
                 </p>
               ) : null}
