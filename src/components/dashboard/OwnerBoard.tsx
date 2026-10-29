@@ -31,6 +31,9 @@ export default function OwnerBoard({
   const houses = snapshot ? snapshot.firstTimeJobs + snapshot.repeatJobs : 0;
   const adMultiple =
     snapshot && snapshot.adSpend > 0 ? snapshot.adRevenue / snapshot.adSpend : null;
+  const jobCost = snapshot ? snapshot.materials + snapshot.adSpend : 0;
+  const jobCostPerJob =
+    snapshot && snapshot.completedJobs > 0 ? jobCost / snapshot.completedJobs : null;
 
   if (part === "money") {
     if (!snapshot) return <p className="text-sm text-gray-500">Loading expenses…</p>;
@@ -48,20 +51,20 @@ export default function OwnerBoard({
               ) : null}
             </div>
             <div>
-              <p className="text-sm text-gray-500">Gas and bleach</p>
+              <p className="text-sm text-gray-500">Gas, bleach, and ads</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-950">
-                {snapshot.materialsPerJob === null ? (
-                  money(snapshot.materials)
+                {jobCostPerJob === null ? (
+                  money(jobCost)
                 ) : (
                   <>
-                    {money(snapshot.materialsPerJob)}
+                    {money(jobCostPerJob)}
                     <span className="text-base font-medium text-gray-400"> / job</span>
                   </>
                 )}
               </p>
-              {snapshot.materialsPerJob !== null ? (
+              {jobCostPerJob !== null ? (
                 <p className="mt-1 text-sm leading-snug text-gray-500">
-                  {money(snapshot.materials)} · {snapshot.completedJobs} done
+                  {money(jobCost)} · {snapshot.completedJobs} done
                 </p>
               ) : null}
             </div>
