@@ -740,7 +740,8 @@ body {
 /* Exact inset for full-height pages (e.g. calendar) — no extra scroll buffer.
    The second clause is the unfolded Duo held sideways. */
 @media (width < 768px), (height <= 800px) and (pointer: coarse) {
-  .calendar-bottom-nav-inset {
+  .calendar-bottom-nav-inset,
+  .phone-nav-inset {
     padding-bottom: calc(3.25rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
   }
 

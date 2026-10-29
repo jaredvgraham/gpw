@@ -21,16 +21,16 @@ export function PeriodViewToggle({
   onChange: (mode: PeriodView) => void;
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-brand-border bg-brand-gray/50 p-1">
+    <div className="inline-flex gap-1">
       {(["year", "month", "week", "range"] as const).map((mode) => (
         <button
           key={mode}
           type="button"
           onClick={() => onChange(mode)}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+          className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
             value === mode
-              ? "bg-white text-brand-blue shadow-sm"
-              : "text-gray-600 hover:text-brand-black"
+              ? "bg-brand-black text-white"
+              : "text-gray-500 hover:text-brand-black"
           }`}
         >
           {VIEW_LABELS[mode]}

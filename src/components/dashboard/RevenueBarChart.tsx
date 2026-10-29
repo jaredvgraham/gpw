@@ -63,9 +63,8 @@ export default function RevenueBarChart({
   const maxValue = Math.max(...data.map((point) => point.revenue), 1);
   const yTicks = [0, 0.5, 1].map((ratio) => Math.round(maxValue * ratio));
   const uniqueTicks = [...new Set(yTicks)].sort((a, b) => a - b);
-  const isWideChart = data.length > 6;
-  const columnMinWidth =
-    data.length === 12 ? 40 : data.length === 4 ? 56 : data.length <= 5 ? 48 : 40;
+  const columnGap = data.length <= 5 ? 8 : data.length > 16 ? 1 : 2;
+  const labelStride = data.length > 16 ? Math.ceil(data.length / 7) : 1;
 
   const handleBarClick = (point: RevenuePoint) => {
     if (onBarClick) {
@@ -76,12 +75,8 @@ export default function RevenueBarChart({
   };
 
   return (
-    <div className="w-full">
-      {onBarClick && (
-        <p className="mb-3 text-xs text-gray-400">Tap any bar to drill into that period</p>
-      )}
-
-      <div className="flex gap-2 sm:gap-3">
+    <div className="w-full min-w-0 max-w-full">
+      <div className="flex min-w-0 gap-2 sm:gap-3">
         <div
           className="flex shrink-0 w-9 sm:w-10 flex-col justify-between text-right text-[10px] text-gray-400"
           style={{ height: CHART_HEIGHT }}
@@ -91,13 +86,10 @@ export default function RevenueBarChart({
           ))}
         </div>
 
-        <div className={`min-w-0 flex-1 ${isWideChart ? "overflow-x-auto pb-1" : ""}`}>
-          <div
-            className={isWideChart ? "min-w-max" : "w-full"}
-            style={{ minWidth: isWideChart ? columnMinWidth * data.length : undefined }}
-          >
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="w-full min-w-0">
             <div
-              className="relative rounded-lg border border-brand-border/60 bg-brand-gray/40"
+              className="relative"
               style={{ height: CHART_HEIGHT }}
             >
               <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-1">
@@ -110,8 +102,8 @@ export default function RevenueBarChart({
                 className="absolute inset-x-1 bottom-0 grid items-end"
                 style={{
                   height: CHART_HEIGHT,
-                  gridTemplateColumns: `repeat(${data.length}, minmax(${columnMinWidth}px, 1fr))`,
-                  columnGap: data.length <= 5 ? 8 : 4,
+                  gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`,
+                  columnGap,
                 }}
               >
                 {data.map((point) => {
@@ -181,21 +173,34 @@ export default function RevenueBarChart({
             </div>
 
             <div
-              className="mt-2.5 grid text-center text-[10px] font-medium text-gray-500 sm:text-xs"
+              className="mt-2.5 grid min-w-0 text-center text-[10px] font-medium text-gray-500 sm:text-xs"
               style={{
-                gridTemplateColumns: `repeat(${data.length}, minmax(${columnMinWidth}px, 1fr))`,
-                columnGap: data.length <= 5 ? 8 : 4,
+                gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`,
+                columnGap,
               }}
             >
-              {data.map((point) => {
+              {data.map((point, index) => {
                 const isHighlighted = highlightKey === point.key;
+                const showLabel =
+                  labelStride === 1 || index % labelStride === 0 || index === data.length - 1;
+                const text = showShortLabels ? point.shortLabel : point.label;
                 return (
                   <span
                     key={point.key}
-                    className={`truncate px-0.5 ${isHighlighted ? "font-semibold text-brand-red" : ""}`}
+                    className={`relative block h-4 min-w-0 ${isHighlighted ? "font-semibold text-brand-red" : ""}`}
                     title={point.label}
                   >
-                    {showShortLabels ? point.shortLabel : point.label}
+                    {showLabel && (
+                      <span
+                        className={
+                          labelStride === 1
+                            ? "block truncate"
+                            : "absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap"
+                        }
+                      >
+                        {text}
+                      </span>
+                    )}
                   </span>
                 );
               })}

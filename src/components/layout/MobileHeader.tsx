@@ -7,6 +7,7 @@ import { useJobModals } from "@/contexts/JobModalContext";
 interface MobileHeaderProps {
   onMenuOpen: () => void;
   variant?: "default" | "itinerary";
+  sticky?: boolean;
 }
 
 function BrandLogo() {
@@ -26,6 +27,7 @@ function BrandLogo() {
 export default function MobileHeader({
   onMenuOpen,
   variant = "default",
+  sticky = true,
 }: MobileHeaderProps) {
   const { openNewJob } = useJobModals();
 
@@ -67,7 +69,7 @@ export default function MobileHeader({
   }
 
   return (
-    <header className="sticky top-0 z-30 shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-brand-border">
+    <header className={`${sticky ? "sticky top-0 z-30" : ""} shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-brand-border`}>
       <button
         type="button"
         onClick={onMenuOpen}

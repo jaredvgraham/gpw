@@ -2,23 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertCircle,
-  Banknote,
-  BarChart3,
-  Calendar,
-  CheckCircle,
-  Clock,
-  TrendingDown,
-  TrendingUp,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { AlertCircle, Calendar, Clock } from "lucide-react";
 import { addDays, endOfMonth, endOfYear, format, startOfMonth, startOfYear } from "date-fns";
-import PageHeader from "@/components/ui/PageHeader";
-import Card from "@/components/ui/Card";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import MetricCard from "@/components/dashboard/MetricCard";
 import RevenueBarChart from "@/components/dashboard/RevenueBarChart";
 import HorizontalBarList from "@/components/dashboard/HorizontalBarList";
 import TopCustomersList from "@/components/dashboard/TopCustomersList";
@@ -26,8 +12,6 @@ import QuarterlyChart from "@/components/dashboard/QuarterlyChart";
 import InsightsBreadcrumb from "@/components/dashboard/InsightsBreadcrumb";
 import GrossNetSection from "@/components/dashboard/GrossNetSection";
 import OwnerBoard from "@/components/dashboard/OwnerBoard";
-import InsightsHero from "@/components/dashboard/InsightsHero";
-import ChartCard from "@/components/dashboard/ChartCard";
 import {
   MonthNavigator,
   PeriodViewToggle,
@@ -51,6 +35,14 @@ import { getJobDateOnly } from "@/lib/dates";
 import { computeOwnerSnapshot } from "@/lib/owner-metrics";
 import type { Expense, Lead } from "@/types";
 
+type ReportLens = "money" | "sources" | "jobs";
+
+const REPORT_LENSES: { id: ReportLens; label: string }[] = [
+  { id: "money", label: "Finances" },
+  { id: "sources", label: "Sources" },
+  { id: "jobs", label: "Jobs" },
+];
+
 export default function DashboardPage() {
   const { openNewJob } = useJobModals();
   const { jobs, jobsLoading } = useAppData();
@@ -60,6 +52,7 @@ export default function DashboardPage() {
   const today = format(now, "yyyy-MM-dd");
 
   const [view, setView] = useState<PeriodView>("year");
+  const [lens, setLens] = useState<ReportLens>("money");
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => calendarWeekRange(today).start);
@@ -163,13 +156,102 @@ export default function DashboardPage() {
 
   const { month, week, year } = insights;
 
-  const yoyTrend =
-    year.yearOverYearChange !== null
+  const statement =
+    view === "week"
       ? {
-          value: `${year.yearOverYearChange >= 0 ? "+" : ""}${year.yearOverYearChange.toFixed(1)}% vs ${year.year - 1}`,
-          positive: year.yearOverYearChange >= 0,
+          label: week.label,
+          collected: week.collected,
+          outstanding: week.outstanding,
+          stats: [
+            { value: String(week.jobsTotal), label: "jobs" },
+            { value: String(week.completed), label: "done" },
+            { value: String(week.scheduled), label: "scheduled" },
+            { value: formatCurrency(week.averageJobValue), label: "average" },
+            week.cancelled > 0 ? { value: String(week.cancelled), label: "cancelled" } : null,
+          ].filter((stat): stat is { value: string; label: string } => Boolean(stat)),
         }
-      : undefined;
+      : view === "month"
+        ? {
+            label: month.label,
+            collected: month.collected,
+            outstanding: month.outstanding,
+            stats: [
+              { value: String(month.jobsTotal), label: "jobs" },
+              { value: String(month.completed), label: "done" },
+              { value: String(month.scheduled), label: "scheduled" },
+              { value: formatCurrency(month.averageCompletedJobValue), label: "per done job" },
+              { value: formatCurrency(month.pipeline), label: "to do" },
+            ],
+          }
+        : view === "range"
+          ? {
+              label: range.label,
+              collected: range.collected,
+              outstanding: range.outstanding,
+              stats: [
+                { value: String(range.jobsTotal), label: "jobs" },
+                { value: String(range.uniqueCustomers), label: "customers" },
+                { value: formatCurrency(range.averageJobValue), label: "average" },
+                range.cancelled > 0 ? { value: String(range.cancelled), label: "cancelled" } : null,
+              ].filter((stat): stat is { value: string; label: string } => Boolean(stat)),
+            }
+          : {
+              label: String(selectedYear),
+              collected: year.revenueCollected,
+              outstanding: year.revenueOutstanding,
+              stats: [
+                { value: String(year.jobsTotal), label: "jobs" },
+                { value: String(year.jobsCompleted), label: "done" },
+                { value: formatCurrency(year.averageJobValue), label: "average" },
+                { value: String(year.uniqueCustomers), label: "customers" },
+                year.yearOverYearChange !== null
+                  ? {
+                      value: `${year.yearOverYearChange >= 0 ? "+" : ""}${year.yearOverYearChange.toFixed(1)}%`,
+                      label: `vs ${year.year - 1}`,
+                    }
+                  : null,
+                year.bestMonth
+                  ? {
+                      value: formatCurrency(year.bestMonth.revenue),
+                      label: `best · ${year.bestMonth.label}`,
+                    }
+                  : null,
+              ].filter((stat): stat is { value: string; label: string } => Boolean(stat)),
+            };
+
+  const periodServices =
+    view === "week"
+      ? week.topServices
+      : view === "month"
+        ? month.topServices
+        : view === "range"
+          ? range.topServices
+          : year.topServices;
+  const periodServiceScale =
+    view === "week"
+      ? week.revenue
+      : view === "month"
+        ? month.revenue
+        : view === "range"
+          ? range.revenue
+          : year.revenueTotal;
+  const periodCustomers = view === "year" ? year.topCustomers : view === "range" ? range.topCustomers : null;
+  const periodStatus =
+    view === "week"
+      ? week.statusCounts
+      : view === "month"
+        ? month.statusCounts
+        : view === "range"
+          ? range.statusCounts
+          : year.statusCounts;
+  const chartTitle =
+    view === "week"
+      ? "Daily revenue"
+      : view === "month"
+        ? "Weekly revenue"
+        : view === "range"
+          ? range.bucketDescription
+          : "Monthly revenue";
 
   const handleMonthChange = (yr: number, mo: number) => {
     setSelectedYear(yr);
@@ -212,23 +294,60 @@ export default function DashboardPage() {
   if (jobsLoading && jobs.length === 0) return <LoadingSpinner />;
 
   return (
-    <div className="pb-8">
-      <PageHeader
-        title="Business Insights"
-        description="Revenue, expenses, and where the work came from"
-        action={
+    <div className="phone-nav-inset flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
+      <div className="max-md:contents md:mb-6 md:shrink-0 md:space-y-3 md:border-b md:border-black/6 md:pb-4">
+        <div className="mb-3 flex items-center justify-between gap-4 px-4 md:mb-4 md:px-0">
+          <h1 className="text-2xl font-bold tracking-tight text-brand-black">Reports</h1>
           <button
             type="button"
             onClick={() => openNewJob()}
-            className="inline-flex items-center rounded-xl bg-brand-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 transition-colors"
+            className="hidden items-center rounded-xl bg-brand-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 transition-colors md:inline-flex"
           >
             + Add Job
           </button>
-        }
-      />
+        </div>
 
-      <div className="mb-6 rounded-2xl border border-brand-border bg-white p-4 shadow-sm space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-md:contents md:flex md:flex-col md:gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            className="sticky top-0 z-20 mb-3 grid grid-cols-3 gap-1 border-b border-black/6 bg-white px-4 py-2 md:static md:mb-0 md:inline-flex md:border-0 md:bg-transparent md:px-0 md:py-0"
+            role="tablist"
+            aria-label="Report"
+          >
+            {REPORT_LENSES.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={lens === item.id}
+                onClick={() => setLens(item.id)}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                  lens === item.id
+                    ? "bg-brand-black text-white"
+                    : "text-gray-500 hover:text-brand-black"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="mb-3 flex flex-wrap gap-4 px-4 md:mb-0 md:px-0">
+            <Link
+              href="/today"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-brand-black"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Today · {insights.todayJobs.length}
+            </Link>
+            <Link
+              href="/calendar"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-brand-black"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Tomorrow · {insights.tomorrowJobs.length}
+            </Link>
+          </div>
+        </div>
+        <div className="mb-6 flex flex-col gap-3 px-4 sm:flex-row sm:flex-wrap sm:items-center md:mb-0 md:px-0">
           <InsightsBreadcrumb
             view={view}
             year={selectedYear}
@@ -237,25 +356,6 @@ export default function DashboardPage() {
             rangeLabel={range.label}
             onNavigate={handleBreadcrumbNavigate}
           />
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/today"
-              className="inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-gray/40 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-brand-gray"
-            >
-              <Calendar className="h-3.5 w-3.5 text-brand-blue" />
-              Today · {insights.todayJobs.length}
-            </Link>
-            <Link
-              href="/calendar"
-              className="inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-gray/40 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-brand-gray"
-            >
-              <Clock className="h-3.5 w-3.5 text-brand-blue" />
-              Tomorrow · {insights.tomorrowJobs.length}
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <PeriodViewToggle value={view} onChange={setView} />
           {view === "year" && (
             <YearSelector
@@ -279,313 +379,179 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <GrossNetSection
-        gross={profit.gross}
-        expenses={profit.expensesTotal}
-        net={profit.net}
-        expensesReady={expensesReady}
-      />
-
-      <OwnerBoard snapshot={ownerSnapshot} leadsReady={leadsReady} />
-
-      {view === "year" && (
-        <div className="space-y-6">
-          <InsightsHero
-            title={`${selectedYear} revenue`}
-            revenue={year.revenueTotal}
-            jobs={year.jobsTotal}
-            meta={
-              year.bestMonth
-                ? `Best month: ${year.bestMonth.label} (${formatCurrency(year.bestMonth.revenue)})`
-                : undefined
-            }
-          />
-
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <MetricCard
-              label="Completed"
-              value={String(year.jobsCompleted)}
-              sub={`${year.uniqueCustomers} customers`}
-              icon={CheckCircle}
-              accent="green"
-            />
-            <MetricCard
-              label="Avg job"
-              value={formatCurrency(year.averageJobValue)}
-              icon={BarChart3}
-              accent="blue"
-            />
-            <MetricCard
-              label="YoY"
-              value={
-                year.yearOverYearChange !== null
-                  ? `${year.yearOverYearChange >= 0 ? "+" : ""}${year.yearOverYearChange.toFixed(1)}%`
-                  : "—"
-              }
-              sub={
-                year.priorYearRevenue !== null
-                  ? `${formatCurrency(year.priorYearRevenue)} last year`
-                  : "No prior year"
-              }
-              icon={
-                year.yearOverYearChange !== null && year.yearOverYearChange < 0
-                  ? TrendingDown
-                  : TrendingUp
-              }
-              accent={
-                year.yearOverYearChange !== null && year.yearOverYearChange < 0 ? "red" : "green"
-              }
-              trend={yoyTrend}
-            />
-          </div>
-
-          <ChartCard
-            title="Monthly revenue"
-            description="Tap a month to see weekly breakdown"
-          >
-            <RevenueBarChart
-              data={year.monthlyRevenue}
-              highlightKey={selectedYear === currentYear ? currentMonthKey : undefined}
-              onBarClick={drillToMonth}
-              showShortLabels
-            />
-          </ChartCard>
-
-          <div>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-              By quarter
-            </h2>
-            <QuarterlyChart data={year.quarterlyRevenue} />
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card title={`Top services · ${selectedYear}`}>
-              <HorizontalBarList
-                items={year.topServices.map((s) => ({
-                  name: s.name,
-                  value: s.revenue,
-                  sub: `${s.count} booking${s.count !== 1 ? "s" : ""}`,
-                }))}
-                color="red"
-                emptyMessage="No services booked this year."
+      <div className="min-w-0 px-4 md:min-h-0 md:flex-1 md:overflow-x-hidden md:overflow-y-auto md:px-0">
+        {lens === "money" && (
+          <div className="grid min-w-0 items-start gap-10 lg:grid-cols-2">
+            <div className="min-w-0">
+              <GrossNetSection
+                label={statement.label}
+                gross={profit.gross}
+                expenses={profit.expensesTotal}
+                net={profit.net}
+                expensesReady={expensesReady}
+                collected={statement.collected}
+                outstanding={statement.outstanding}
+                slices={ownerSnapshot?.expensesByType}
+                stats={statement.stats}
               />
-            </Card>
-            <Card title={`Top customers · ${selectedYear}`}>
-              <TopCustomersList
-                items={year.topCustomers}
-                color="blue"
-                emptyMessage="No customers this year."
-              />
-            </Card>
-          </div>
-
-          <Card title="Job status">
-            <StatusGrid counts={year.statusCounts} />
-          </Card>
-        </div>
-      )}
-
-      {view === "month" && (
-        <div className="space-y-6">
-          <InsightsHero
-            title={month.label}
-            revenue={month.revenue}
-            jobs={month.jobsTotal}
-            meta={`${month.completed} completed · ${month.scheduled} scheduled`}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <MetricCard
-              label="Pipeline"
-              value={formatCurrency(month.pipeline)}
-              sub="Upcoming work"
-              icon={Banknote}
-              accent="blue"
-            />
-            <MetricCard
-              label="Avg completed"
-              value={formatCurrency(month.averageCompletedJobValue)}
-              icon={Wallet}
-              accent="green"
-            />
-          </div>
-
-          <ChartCard
-            title="Weekly breakdown"
-            description="Monday–Sunday · tap a week for each day"
-          >
-            <RevenueBarChart
-              data={month.weeklyRevenue}
-              highlightKey={
-                selectedYear === currentYear && selectedMonth === currentMonth
-                  ? currentWeekKey
-                  : undefined
-              }
-              onBarClick={drillToWeek}
-              showShortLabels
-            />
-          </ChartCard>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card title="Top services">
-              <HorizontalBarList
-                items={month.topServices.map((s) => ({
-                  name: s.name,
-                  value: s.revenue,
-                  sub: `${s.count} booking${s.count !== 1 ? "s" : ""}`,
-                }))}
-                color="red"
-              />
-            </Card>
-            <Card title="Job status">
-              <StatusGrid counts={month.statusCounts} />
-              {insights.needsFollowUpCount > 0 && (
-                <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-sm text-amber-800">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    {insights.needsFollowUpCount} job{insights.needsFollowUpCount !== 1 ? "s" : ""}{" "}
-                    need follow-up
-                  </span>
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <OwnerBoard part="money" snapshot={ownerSnapshot} leadsReady={leadsReady} />
+              </div>
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium text-gray-500">{chartTitle}</h2>
+              <div className="mt-4">
+                {view === "year" && (
+                  <RevenueBarChart
+                    data={year.monthlyRevenue}
+                    highlightKey={selectedYear === currentYear ? currentMonthKey : undefined}
+                    onBarClick={drillToMonth}
+                    showShortLabels
+                  />
+                )}
+                {view === "month" && (
+                  <RevenueBarChart
+                    data={month.weeklyRevenue}
+                    highlightKey={
+                      selectedYear === currentYear && selectedMonth === currentMonth
+                        ? currentWeekKey
+                        : undefined
+                    }
+                    onBarClick={drillToWeek}
+                    showShortLabels
+                  />
+                )}
+                {view === "week" && (
+                  <RevenueBarChart
+                    data={week.dailyRevenue}
+                    highlightKey={
+                      today >= week.weekStart && today <= week.weekEnd ? today : undefined
+                    }
+                    showShortLabels
+                  />
+                )}
+                {view === "range" && <RevenueBarChart data={range.buckets} showShortLabels />}
+              </div>
+              {view === "year" && (
+                <div className="mt-6 border-t border-gray-100 pt-5">
+                  <p className="mb-4 text-sm font-medium text-gray-500">Quarters</p>
+                  <QuarterlyChart data={year.quarterlyRevenue} />
                 </div>
               )}
-            </Card>
+            </div>
           </div>
+        )}
 
-          <Card title="Upcoming pipeline">
-            <UpcomingJobs jobs={insights.upcomingJobs} />
-          </Card>
-        </div>
-      )}
-
-      {view === "week" && (
-        <div className="space-y-6">
-          <InsightsHero
-            title={week.label}
-            revenue={week.revenue}
-            jobs={week.jobsTotal}
-            meta={`${week.completed} completed · ${week.scheduled} scheduled`}
+        {lens === "sources" && (
+          <OwnerBoard
+            part="sources"
+            snapshot={ownerSnapshot}
+            leadsReady={leadsReady}
           />
+        )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <MetricCard
-              label="Avg job"
-              value={formatCurrency(week.averageJobValue)}
-              icon={BarChart3}
-              accent="blue"
-            />
-            <MetricCard
-              label="Cancelled"
-              value={String(week.cancelled)}
-              icon={CheckCircle}
-              accent="red"
-            />
+        {lens === "jobs" && (
+          <div className="grid items-start gap-10 md:h-full md:min-h-0 md:grid-rows-[minmax(0,1fr)] md:items-stretch md:overflow-hidden lg:grid-cols-2">
+            <div className="md:min-h-0 md:overflow-y-auto">
+              <h2 className="text-sm font-medium text-gray-500">Services</h2>
+              <div className="mt-4">
+                <HorizontalBarList
+                  items={periodServices.map((service) => ({
+                    name: service.name,
+                    value: service.revenue,
+                    sub: `${service.count} booking${service.count !== 1 ? "s" : ""}`,
+                  }))}
+                  color="blue"
+                  scale={periodServiceScale}
+                  emptyMessage={
+                    view === "year"
+                      ? "No services booked this year."
+                      : view === "range"
+                        ? "No services in this range."
+                        : "No services in this period."
+                  }
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-8 md:h-full md:min-h-0 md:overflow-hidden">
+              <div className="shrink-0">
+                <h2 className="text-sm font-medium text-gray-500">Job status</h2>
+                <div className="mt-4">
+                  <StatusMix counts={periodStatus} />
+                </div>
+                {insights.needsFollowUpCount > 0 && (
+                  <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      {insights.needsFollowUpCount} job{insights.needsFollowUpCount !== 1 ? "s" : ""}{" "}
+                      need follow-up
+                    </span>
+                  </div>
+                )}
+              </div>
+              {view === "month" && (
+                <div className="shrink-0">
+                  <h2 className="text-sm font-medium text-gray-500">Still to do</h2>
+                  <div className="mt-4">
+                    <UpcomingJobs jobs={insights.upcomingJobs} />
+                  </div>
+                </div>
+              )}
+              {periodCustomers && (
+                <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
+                  <h2 className="text-sm font-medium text-gray-500">Customers</h2>
+                  <div className="mt-4">
+                    <TopCustomersList
+                      items={periodCustomers}
+                      color="blue"
+                      scale={periodServiceScale}
+                      emptyMessage={
+                        view === "range" ? "No customers in this range." : "No customers this year."
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-
-          <ChartCard title="Daily breakdown" description="Monday through Sunday">
-            <RevenueBarChart
-              data={week.dailyRevenue}
-              highlightKey={
-                today >= week.weekStart && today <= week.weekEnd ? today : undefined
-              }
-              showShortLabels
-            />
-          </ChartCard>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card title="Top services">
-              <HorizontalBarList
-                items={week.topServices.map((s) => ({
-                  name: s.name,
-                  value: s.revenue,
-                  sub: `${s.count} booking${s.count !== 1 ? "s" : ""}`,
-                }))}
-                color="red"
-              />
-            </Card>
-            <Card title="Job status">
-              <StatusGrid counts={week.statusCounts} />
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {view === "range" && (
-        <div className="space-y-6">
-          <InsightsHero
-            title={range.label}
-            revenue={range.revenue}
-            jobs={range.jobsTotal}
-            meta={`${range.completed} completed · ${range.scheduled} scheduled`}
-          />
-
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <MetricCard
-              label="Avg job"
-              value={formatCurrency(range.averageJobValue)}
-              icon={BarChart3}
-              accent="blue"
-            />
-            <MetricCard
-              label="Customers"
-              value={String(range.uniqueCustomers)}
-              icon={Users}
-              accent="green"
-            />
-            <MetricCard
-              label="Cancelled"
-              value={String(range.cancelled)}
-              icon={CheckCircle}
-              accent="red"
-            />
-          </div>
-
-          <ChartCard title="Breakdown" description={range.bucketDescription}>
-            <RevenueBarChart data={range.buckets} showShortLabels />
-          </ChartCard>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card title="Top services">
-              <HorizontalBarList
-                items={range.topServices.map((service) => ({
-                  name: service.name,
-                  value: service.revenue,
-                  sub: `${service.count} booking${service.count !== 1 ? "s" : ""}`,
-                }))}
-                color="red"
-                emptyMessage="No services in this range."
-              />
-            </Card>
-            <Card title="Top customers">
-              <TopCustomersList
-                items={range.topCustomers}
-                color="blue"
-                emptyMessage="No customers in this range."
-              />
-            </Card>
-          </div>
-
-          <Card title="Job status">
-            <StatusGrid counts={range.statusCounts} />
-          </Card>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-function StatusGrid({ counts }: { counts: { status: string; count: number }[] }) {
+function StatusMix({ counts }: { counts: { status: string; count: number }[] }) {
+  const total = counts.reduce((sum, item) => sum + item.count, 0);
+
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {counts.map(({ status, count }) => (
-        <div
-          key={status}
-          className="rounded-xl border border-brand-border bg-brand-gray/20 px-3 py-3"
-          style={{ borderLeftWidth: 4, borderLeftColor: STATUS_COLORS[status as keyof typeof STATUS_COLORS] }}
-        >
-          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{status}</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-brand-black">{count}</p>
-        </div>
-      ))}
+    <div>
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100">
+        {total > 0
+          ? counts.map(({ status, count }) =>
+              count > 0 ? (
+                <div
+                  key={status}
+                  style={{
+                    width: `${(count / total) * 100}%`,
+                    backgroundColor: STATUS_COLORS[status as keyof typeof STATUS_COLORS],
+                  }}
+                />
+              ) : null
+            )
+          : null}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+        {counts.map(({ status, count }) => (
+          <p key={status} className="flex items-center gap-2 text-sm text-gray-600">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: STATUS_COLORS[status as keyof typeof STATUS_COLORS] }}
+            />
+            <span className="font-semibold tabular-nums text-gray-950">{count}</span>
+            {status}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -606,32 +572,28 @@ function UpcomingJobs({
   }
 
   return (
-    <div className="space-y-2">
+    <div>
       {jobs.map((job) => {
         const customer = typeof job.customer === "object" ? job.customer.name : "Customer";
         return (
           <div
             key={job._id}
-            className="flex items-center justify-between gap-3 rounded-xl border border-brand-border bg-brand-gray/20 px-3 py-3"
+            className="flex items-baseline justify-between gap-4 border-t border-gray-100 py-3 first:border-t-0 first:pt-0"
           >
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-brand-black">{customer}</p>
-              <p className="text-xs text-gray-500">
-                {format(new Date(getJobDateOnly(job.jobDate) + "T12:00:00"), "EEE, MMM d")} ·{" "}
-                {job.startTime}
+              <p className="truncate text-sm font-medium text-gray-950">{customer}</p>
+              <p className="text-sm text-gray-500">
+                {format(new Date(getJobDateOnly(job.jobDate) + "T12:00:00"), "EEE, MMM d")} · {job.startTime}
               </p>
             </div>
-            <p className="shrink-0 text-sm font-bold tabular-nums text-brand-red">
+            <p className="shrink-0 text-sm font-semibold tabular-nums text-gray-950">
               {formatCurrency(job.finalPrice)}
             </p>
           </div>
         );
       })}
-      <Link
-        href="/jobs"
-        className="inline-block pt-1 text-sm font-semibold text-brand-blue hover:underline"
-      >
-        View all jobs →
+      <Link href="/jobs" className="inline-block pt-3 text-sm font-medium text-brand-blue hover:underline">
+        All jobs
       </Link>
     </div>
   );

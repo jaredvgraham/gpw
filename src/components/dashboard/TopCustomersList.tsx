@@ -12,12 +12,14 @@ export default function TopCustomersList({
   items,
   color = "blue",
   emptyMessage = "No customers this year.",
+  scale,
 }: {
   items: CustomerInsight[];
   color?: "blue" | "red" | "green";
   emptyMessage?: string;
+  scale?: number;
 }) {
-  const maxValue = Math.max(...items.map((item) => item.revenue), 1);
+  const maxValue = scale && scale > 0 ? scale : Math.max(...items.map((item) => item.revenue), 1);
 
   if (items.length === 0) {
     return <p className="py-8 text-center text-sm text-gray-500">{emptyMessage}</p>;
