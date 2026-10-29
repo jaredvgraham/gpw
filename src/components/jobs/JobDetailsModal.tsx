@@ -1,21 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Job } from "@/types";
+import { format } from "date-fns";
+import type { Customer, Job } from "@/types";
 import Modal from "@/components/ui/Modal";
-import Button from "@/components/ui/Button";
-import StatusBadge from "@/components/ui/StatusBadge";
 import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
+import { formatTimeRange, STATUS_SURFACE } from "@/components/calendar/desktop/model";
 import { getJobDateOnly } from "@/lib/dates";
-import {
-  formatCurrency,
-  formatDate,
-  formatTime,
-  getCustomerAddress,
-  getJobDuration,
-} from "@/lib/utils";
-import { MapPin, Phone, Mail, Clock } from "lucide-react";
-import type { Customer } from "@/types";
+import { getJobHouseholdDisplay } from "@/lib/household-display";
+import { formatCurrency, getCustomerAddress, getJobDuration } from "@/lib/utils";
+import { useAppData } from "@/contexts/AppDataContext";
 import { notifyJobSaved, useJobModals } from "@/contexts/JobModalContext";
 
 interface JobDetailsModalProps {
@@ -32,6 +26,7 @@ export default function JobDetailsModal({
   onUpdated,
 }: JobDetailsModalProps) {
   const { openEditJob } = useJobModals();
+  const { jobs } = useAppData();
   const [loading, setLoading] = useState(false);
   const [paid, setPaid] = useState(false);
 
@@ -42,6 +37,17 @@ export default function JobDetailsModal({
   if (!job) return null;
 
   const customer = typeof job.customer === "object" ? (job.customer as Customer) : null;
+  const display = getJobHouseholdDisplay(job, jobs);
+  const surface = STATUS_SURFACE[job.status] ?? STATUS_SURFACE.Scheduled;
+  const [year, month, day] = getJobDateOnly(job.jobDate).split("-").map(Number);
+  const when = format(new Date(year, month - 1, day), "EEEE, MMMM d");
+  const services = job.services
+    .map((service) => (service.name === "Other" && service.customServiceName ? service.customServiceName : service.name))
+    .filter(Boolean);
+  const notes = [
+    { label: "Internal notes", value: job.internalNotes },
+    { label: "Photo notes", value: job.photoNotes },
+  ].filter((note) => note.value);
 
   function buildPatchBody(overrides: { status?: string; paid?: boolean } = {}) {
     const customerId =
@@ -107,127 +113,127 @@ export default function JobDetailsModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Job Details" size="lg">
-      <div className="space-y-5">
-        <div className="flex items-start justify-between">
-          <div className="min-w-0 flex-1">
-            <JobCustomerHeader job={job} />
-            {customer && (
-              <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                <MapPin className="h-4 w-4" />
-                {getCustomerAddress(customer)}
-              </p>
-            )}
-          </div>
-          <StatusBadge status={job.status} />
+    <Modal open={open} onClose={onClose} title={display.primaryName} size="lg" bare>
+      <div className="h-1" style={{ backgroundColor: surface.accent }} />
+      <div className="px-7 pb-6 pt-8">
+        <div className="pr-10">
+          <h2 className="text-[2rem] font-semibold leading-none tracking-tight text-gray-950">
+            {display.primaryName}
+          </h2>
+          <p className="mt-3 flex items-center gap-2 text-sm font-medium" style={{ color: surface.accent }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: surface.accent }} />
+            {job.status}
+          </p>
+          {display.memberCount > 1 ? (
+            <div className="mt-3">
+              <JobCustomerHeader job={job} showName={false} />
+            </div>
+          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {customer?.phone && (
-            <div className="flex items-center gap-2 text-sm">
-              <Phone className="h-4 w-4 text-gray-400" />
-              <a href={`tel:${customer.phone}`} className="text-brand-blue hover:underline">
+        <p className="mt-8 text-[17px] font-medium tracking-tight text-gray-950">
+          {when}
+          <span className="px-2 text-gray-300">·</span>
+          {formatTimeRange(job.startTime, job.endTime)}
+          <span className="px-2 text-gray-300">·</span>
+          {getJobDuration(job.startTime, job.endTime)}
+        </p>
+
+        {customer ? (
+          <p className="mt-2 text-[15px] leading-relaxed text-gray-500">{getCustomerAddress(customer)}</p>
+        ) : null}
+        {(customer?.phone || customer?.email) && (
+          <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[15px]">
+            {customer?.phone ? (
+              <a href={`tel:${customer.phone}`} className="text-gray-700 underline decoration-gray-300 underline-offset-4 hover:decoration-gray-700">
                 {customer.phone}
               </a>
-            </div>
-          )}
-          {customer?.email && (
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="h-4 w-4 text-gray-400" />
-              <a href={`mailto:${customer.email}`} className="text-brand-blue hover:underline">
+            ) : null}
+            {customer?.email ? (
+              <a href={`mailto:${customer.email}`} className="text-gray-700 underline decoration-gray-300 underline-offset-4 hover:decoration-gray-700">
                 {customer.email}
               </a>
-            </div>
-          )}
-          <div className="flex items-center gap-2 text-sm">
-            <Clock className="h-4 w-4 text-gray-400" />
-            {formatDate(job.jobDate)} · {formatTime(job.startTime)} – {formatTime(job.endTime)}
-            <span className="text-gray-400">({getJobDuration(job.startTime, job.endTime)})</span>
-          </div>
-        </div>
+            ) : null}
+          </p>
+        )}
 
-        <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Services</h4>
-          <div className="flex flex-wrap gap-2">
-            {job.services.map((s, i) => (
-              <span
-                key={i}
-                className="rounded-full bg-blue-50 text-brand-blue px-3 py-1 text-sm font-medium"
-              >
-                {s.name === "Other" && s.customServiceName ? s.customServiceName : s.name}
-              </span>
-            ))}
-          </div>
-        </div>
+        {services.length > 0 ? (
+          <p className="mt-6 text-[15px] leading-relaxed text-gray-600">{services.join(" · ")}</p>
+        ) : null}
 
-        <div className="flex items-stretch gap-4">
-          <div className="rounded-lg bg-brand-gray p-3 flex-1">
-            <p className="text-xs text-gray-500">Final Price</p>
-            <p className="text-sm font-semibold mt-0.5">{formatCurrency(job.finalPrice)}</p>
-          </div>
+        <div className="mt-8 flex items-center justify-between gap-6 border-t border-gray-100 pt-6">
+          <p className="text-4xl font-semibold tabular-nums tracking-tight text-gray-950">
+            {formatCurrency(job.finalPrice)}
+          </p>
           <button
             type="button"
+            role="switch"
+            aria-checked={paid}
             onClick={togglePaid}
             disabled={loading}
-            className={`flex flex-col items-start justify-center rounded-xl border-2 px-4 py-3 min-w-[8.5rem] transition-colors disabled:opacity-50 ${
-              paid
-                ? "border-green-500 bg-green-50"
-                : "border-brand-border bg-white hover:bg-brand-gray"
-            }`}
+            className="inline-flex items-center gap-3 text-sm font-medium text-gray-700 disabled:opacity-50"
           >
-            <span className="text-xs text-gray-500">Paid</span>
-            <span
-              className={`mt-1 flex items-center gap-2 text-sm font-semibold ${
-                paid ? "text-green-700" : "text-gray-600"
-              }`}
-            >
+            {paid ? "Paid" : "Unpaid"}
+            <span className={`relative h-7 w-12 rounded-full transition ${paid ? "bg-green-500" : "bg-gray-200"}`}>
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded border-2 shrink-0 ${
-                  paid ? "border-green-500 bg-green-500 text-white" : "border-gray-300 bg-white"
+                className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                  paid ? "left-5" : "left-0.5"
                 }`}
-              >
-                {paid && "✓"}
-              </span>
-              {paid ? "Paid in full" : "Not paid"}
+              />
             </span>
           </button>
         </div>
 
-        {[
-          { label: "Internal Notes", value: job.internalNotes },
-          { label: "Photo Notes", value: job.photoNotes },
-        ]
-          .filter((n) => n.value)
-          .map(({ label, value }) => (
-            <div key={label}>
-              <h4 className="text-sm font-semibold text-gray-700">{label}</h4>
-              <p className="text-sm text-gray-600 mt-1">{value}</p>
-            </div>
-          ))}
+        {notes.length > 0 ? (
+          <div className="mt-6 space-y-4 border-t border-gray-100 pt-6">
+            {notes.map(({ label, value }) => (
+              <div key={label}>
+                <p className="text-sm font-medium text-gray-950">{label}</p>
+                <p className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed text-gray-600">{value}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-brand-border">
-          <Button
-            variant="secondary"
+        <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-gray-100 pt-5">
+          <button
+            type="button"
             onClick={() => {
               onClose();
               openEditJob(job);
             }}
+            className="text-sm font-medium text-gray-500 transition hover:text-gray-950"
           >
             Edit
-          </Button>
-          <Button variant="danger" onClick={deleteJob} disabled={loading}>
+          </button>
+          {job.status !== "Cancelled" ? (
+            <button
+              type="button"
+              onClick={() => updateStatus("Cancelled")}
+              disabled={loading}
+              className="text-sm font-medium text-gray-500 transition hover:text-gray-950 disabled:opacity-50"
+            >
+              Cancel job
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={deleteJob}
+            disabled={loading}
+            className="text-sm font-medium text-red-600 transition hover:text-red-700 disabled:opacity-50"
+          >
             Delete
-          </Button>
-          {job.status !== "Completed" && (
-            <Button variant="success" onClick={() => updateStatus("Completed")} disabled={loading}>
-              Mark Completed
-            </Button>
-          )}
-          {job.status !== "Cancelled" && (
-            <Button variant="secondary" onClick={() => updateStatus("Cancelled")} disabled={loading}>
-              Mark Cancelled
-            </Button>
-          )}
+          </button>
+          {job.status !== "Completed" ? (
+            <button
+              type="button"
+              onClick={() => updateStatus("Completed")}
+              disabled={loading}
+              className="ml-auto rounded-full bg-gray-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50"
+            >
+              Complete
+            </button>
+          ) : null}
         </div>
       </div>
     </Modal>

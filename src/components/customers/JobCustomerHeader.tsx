@@ -8,10 +8,12 @@ import HouseholdBadge, { HouseholdMemberLine } from "@/components/customers/Hous
 export default function JobCustomerHeader({
   job,
   showMembers = true,
+  showName = true,
   compact = false,
 }: {
   job: Job;
   showMembers?: boolean;
+  showName?: boolean;
   compact?: boolean;
 }) {
   const { jobs } = useAppData();
@@ -22,13 +24,15 @@ export default function JobCustomerHeader({
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2">
-        <h3
-          className={`font-semibold text-brand-black ${
-            compact ? "text-sm truncate" : ""
-          }`}
-        >
-          {display.primaryName}
-        </h3>
+        {showName ? (
+          <h3
+            className={`font-semibold text-brand-black ${
+              compact ? "text-sm truncate" : ""
+            }`}
+          >
+            {display.primaryName}
+          </h3>
+        ) : null}
         {display.memberCount > 1 && (
           <HouseholdBadge
             label={`${display.memberCount} people`}

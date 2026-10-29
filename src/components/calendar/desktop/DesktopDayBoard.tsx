@@ -45,7 +45,7 @@ export default function DesktopDayBoard({
     <div className="h-full min-h-0 overflow-auto">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 pb-6">
         {dayJobs.length === 0 ? (
-          <div className="rounded-2xl bg-white px-8 py-16 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-black/[0.06]">
+          <div className="rounded-2xl bg-white px-8 py-16 text-center ring-1 ring-gray-200">
             <p className="text-lg font-semibold tracking-tight text-brand-black">Nothing on the books</p>
             <button
               type="button"
@@ -89,54 +89,41 @@ function DayJobCard({ job, jobs, onOpen }: { job: Job; jobs: Job[]; onOpen: () =
       type="button"
       onClick={onOpen}
       aria-label={jobSummary(job, name)}
-      className="grid w-full grid-cols-[7.25rem_minmax(0,1fr)_auto] items-start gap-4 rounded-2xl border px-5 py-4 text-left transition hover:brightness-[0.98]"
-      style={{
-        backgroundColor: surface.bg,
-        borderColor: surface.border,
-        boxShadow: `inset 4px 0 0 ${surface.accent}`,
-      }}
+      className="grid w-full grid-cols-[7.25rem_minmax(0,1fr)_auto] items-start gap-4 rounded-2xl border border-black/[0.04] px-5 py-4 text-left transition hover:brightness-[0.98]"
+      style={{ backgroundColor: surface.bg, boxShadow: `inset 3px 0 0 ${surface.accent}` }}
     >
       <span>
-        <span className="block text-sm font-semibold tabular-nums" style={{ color: surface.muted }}>
+        <span className="block text-sm font-semibold tabular-nums" style={{ color: surface.accent }}>
           {formatTime(job.startTime)}
         </span>
-        <span className="mt-0.5 block text-xs tabular-nums" style={{ color: surface.ink, opacity: 0.55 }}>
+        <span className="mt-0.5 block text-xs font-medium tabular-nums text-gray-400">
           {formatTime(job.endTime)}
         </span>
         <span className="sr-only">{formatTimeRange(job.startTime, job.endTime)}</span>
       </span>
       <span className="min-w-0">
         <span
-          className={`block truncate text-base font-semibold tracking-tight ${cancelled ? "line-through" : ""}`}
-          style={{ color: surface.ink }}
+          className={`block truncate text-base font-semibold tracking-tight text-gray-900 ${cancelled ? "line-through" : ""}`}
         >
           {name}
         </span>
         {services ? (
-          <span className="mt-1 block text-sm font-semibold leading-snug" style={{ color: surface.ink }}>
-            {services}
-          </span>
+          <span className="mt-1 block text-sm font-medium leading-snug text-gray-700">{services}</span>
         ) : null}
         {address ? (
-          <span className="mt-1 block truncate text-sm" style={{ color: surface.ink, opacity: 0.65 }}>
-            {address}
-          </span>
+          <span className="mt-0.5 block truncate text-sm leading-snug text-gray-500">{address}</span>
         ) : null}
       </span>
       <span className="text-right">
         {job.finalPrice !== undefined ? (
-          <span className="block text-base font-semibold tabular-nums" style={{ color: surface.ink }}>
+          <span className="block text-base font-semibold tabular-nums text-gray-900">
             {formatCurrency(job.finalPrice)}
           </span>
         ) : null}
         {mark ? (
-          <span className={`mt-1 block text-[11px] font-semibold uppercase tracking-wide ${MARK_CLASS[mark.tone]}`}>
-            {mark.label}
-          </span>
+          <span className={`mt-1 block text-xs font-medium ${MARK_CLASS[mark.tone]}`}>{mark.label}</span>
         ) : (
-          <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            Scheduled
-          </span>
+          <span className="mt-1 block text-xs font-medium text-gray-400">Scheduled</span>
         )}
       </span>
     </button>

@@ -82,12 +82,17 @@ export default function DesktopCalendarChrome({
             Today
           </button>
         </div>
-        <div className="mt-3 flex min-h-5 flex-wrap items-baseline gap-x-4 gap-y-1 pl-[4.75rem]">
+        <div className="mt-2.5 flex min-h-5 flex-wrap items-baseline gap-x-3 gap-y-1 pl-[4.75rem]">
           {stats.length === 0 ? (
             <p className="text-sm text-gray-400">Nothing booked</p>
           ) : (
-            stats.map((stat) => (
+            stats.map((stat, index) => (
               <span key={stat.label} className="inline-flex items-baseline gap-1.5">
+                {index > 0 ? (
+                  <span aria-hidden="true" className="text-gray-300">
+                    ·
+                  </span>
+                ) : null}
                 <span
                   className={`text-sm font-semibold tabular-nums ${
                     stat.tone === "alert"
@@ -108,7 +113,7 @@ export default function DesktopCalendarChrome({
         </div>
       </div>
 
-      <div className="inline-flex shrink-0 rounded-full bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-black/[0.06]">
+      <div className="inline-flex shrink-0 rounded-full bg-white p-1 ring-1 ring-gray-200">
         {DESKTOP_VIEWS.map(({ view: next, label }) => {
           const active = view === next;
           return (

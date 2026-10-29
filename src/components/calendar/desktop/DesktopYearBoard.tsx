@@ -37,12 +37,11 @@ export default function DesktopYearBoard({
           const monthIso = format(month, "yyyy-MM");
           const inMonth = jobs.filter((job) => getJobDateOnly(job.jobDate).startsWith(monthIso));
           const total = bookedTotal(inMonth);
-          const monthSignal = yearDaySignal(inMonth);
 
           return (
             <section
               key={monthIso}
-              className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-black/[0.06]"
+              className="rounded-2xl bg-white p-4 ring-1 ring-gray-200"
             >
               <div className="flex items-baseline justify-between gap-3">
                 <button
@@ -52,20 +51,15 @@ export default function DesktopYearBoard({
                 >
                   {format(month, "MMMM")}
                 </button>
-                {total > 0 && monthSignal ? (
-                  <span
-                    className="text-[11px] font-semibold tabular-nums"
-                    style={{ color: STATUS_SURFACE[monthSignal].muted }}
-                  >
-                    {formatCurrency(total)}
-                  </span>
+                {total > 0 ? (
+                  <span className="text-[11px] font-medium tabular-nums text-gray-400">{formatCurrency(total)}</span>
                 ) : (
                   <span className="text-[11px] text-gray-300">—</span>
                 )}
               </div>
               <div className="mt-3 grid grid-cols-7 gap-y-1">
                 {WEEKDAYS.map((label, index) => (
-                  <div key={`${monthIso}-${label}-${index}`} className="text-center text-[10px] font-semibold text-gray-300">
+                  <div key={`${monthIso}-${label}-${index}`} className="text-center text-[10px] font-medium tracking-wide text-gray-400">
                     {label}
                   </div>
                 ))}
@@ -93,13 +87,9 @@ export default function DesktopYearBoard({
                     >
                       <span
                         className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] tabular-nums transition ${
-                          today ? "bg-brand-blue font-semibold text-white" : signal ? "font-semibold" : "text-gray-400 hover:bg-brand-gray"
+                          today ? "bg-brand-blue font-semibold text-white" : signal ? "font-semibold hover:bg-gray-100" : "text-gray-400 hover:bg-gray-100"
                         }`}
-                        style={
-                          !today && signal
-                            ? { backgroundColor: STATUS_SURFACE[signal].bg, color: STATUS_SURFACE[signal].ink }
-                            : undefined
-                        }
+                        style={!today && signal ? { color: STATUS_SURFACE[signal].accent } : undefined}
                       >
                         {index + 1}
                       </span>

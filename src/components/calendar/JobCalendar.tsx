@@ -1,19 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
-import type {
-  EventClickArg,
-  DateSelectArg,
-  EventContentArg,
-  DatesSetArg,
-  DayHeaderContentArg,
-  EventMountArg,
-} from "@fullcalendar/core";
-import type { DateClickArg } from "@fullcalendar/interaction";
+import { useEffect, useState, useCallback } from "react";
 import {
   addDays,
   addMonths,
@@ -27,8 +14,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import type { Job } from "@/types";
-import { jobToCalendarEvent, formatCurrency } from "@/lib/utils";
-import { getJobHouseholdTitle } from "@/lib/household-display";
+import { formatCurrency } from "@/lib/utils";
 import JobDetailsModal from "@/components/jobs/JobDetailsModal";
 import MobileDaySheet from "@/components/calendar/MobileDaySheet";
 import MobileCalendarView from "@/components/calendar/mobile/MobileCalendarView";
@@ -36,6 +22,7 @@ import DesktopCalendarChrome, { type CalendarStat } from "@/components/calendar/
 import DesktopMonthBoard from "@/components/calendar/desktop/DesktopMonthBoard";
 import DesktopYearBoard from "@/components/calendar/desktop/DesktopYearBoard";
 import DesktopDayBoard from "@/components/calendar/desktop/DesktopDayBoard";
+import DesktopWeekBoard from "@/components/calendar/desktop/DesktopWeekBoard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { useAppData } from "@/contexts/AppDataContext";
@@ -43,28 +30,11 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   bookedTotal,
   dueTotal,
-  formatTimeRange,
-  jobServiceLabel,
-  jobStatusMark,
-  jobTown,
   jobsBetween,
-  STATUS_SURFACE,
   toIsoDate,
   type DesktopView,
   viewInterval,
-  yearDaySignal,
 } from "@/components/calendar/desktop/model";
-
-function paintJobEvent(el: HTMLElement, status: keyof typeof STATUS_SURFACE | undefined) {
-  const surface = (status && STATUS_SURFACE[status]) || STATUS_SURFACE.Scheduled;
-  el.style.backgroundColor = surface.bg;
-  el.style.borderColor = surface.border;
-  el.style.borderLeftColor = surface.accent;
-  el.style.color = surface.ink;
-  el.style.setProperty("--gpw-accent", surface.accent);
-  el.style.setProperty("--gpw-ink", surface.ink);
-  el.style.setProperty("--gpw-muted", surface.muted);
-}
 
 function headingFor(view: DesktopView, cursor: Date) {
   if (view === "dayGridMonth") {
@@ -106,37 +76,10 @@ function buildStats(jobs: Job[]): CalendarStat[] {
   return stats;
 }
 
-function WeekDayHeader({ arg, jobs }: { arg: DayHeaderContentArg; jobs: Job[] }) {
-  const dayJobs = jobsBetween(jobs, arg.date, arg.date);
-  const total = bookedTotal(dayJobs);
-  const signal = yearDaySignal(dayJobs);
-  return (
-    <div className="flex flex-col items-center px-1 py-2">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
-        {format(arg.date, "EEE")}
-      </span>
-      <span
-        className={`mt-1 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold tabular-nums ${
-          arg.isToday ? "bg-brand-blue text-white" : "text-brand-black"
-        }`}
-      >
-        {format(arg.date, "d")}
-      </span>
-      <span
-        className="mt-1 h-4 text-[11px] font-semibold tabular-nums"
-        style={{ color: signal ? STATUS_SURFACE[signal].muted : undefined }}
-      >
-        {total > 0 ? formatCurrency(total) : ""}
-      </span>
-    </div>
-  );
-}
-
 export default function JobCalendar() {
   const isMobile = useIsMobile();
   const { openNewJob } = useJobModals();
   const { jobs, jobsLoading: loading } = useAppData();
-  const calendarRef = useRef<FullCalendar>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<DesktopView>("dayGridMonth");
@@ -168,13 +111,6 @@ export default function JobCalendar() {
   }, [jobs]);
 
   useEffect(() => {
-    if (currentView !== "timeGridWeek") return;
-    const api = calendarRef.current?.getApi();
-    if (!api) return;
-    if (!isSameDay(api.getDate(), cursor)) api.gotoDate(cursor);
-  }, [currentView, cursor]);
-
-  useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (modalOpen || daySheetOpen) return;
       const target = event.target as HTMLElement | null;
@@ -184,15 +120,10 @@ export default function JobCalendar() {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault();
       const direction = event.key === "ArrowLeft" ? -1 : 1;
-      if (currentView === "timeGridWeek") {
-        const api = calendarRef.current?.getApi();
-        if (direction < 0) api?.prev();
-        else api?.next();
-        return;
-      }
       setCursor((current) => {
         if (currentView === "dayGridMonth") return addMonths(current, direction);
         if (currentView === "multiMonthYear") return addYears(current, direction);
+        if (currentView === "timeGridWeek") return addDays(current, direction * 7);
         return addDays(current, direction);
       });
     }
@@ -200,54 +131,15 @@ export default function JobCalendar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [currentView, modalOpen, daySheetOpen]);
 
-  const events = jobs.map((job) => {
-    const event = jobToCalendarEvent(job);
-    const surface = STATUS_SURFACE[job.status] ?? STATUS_SURFACE.Scheduled;
-    return {
-      ...event,
-      title: getJobHouseholdTitle(job, jobs),
-      backgroundColor: surface.bg,
-      borderColor: surface.border,
-      extendedProps: { job },
-    };
-  });
-
-  function handleEventClick(info: EventClickArg) {
-    info.jsEvent.preventDefault();
-    const job = jobs.find((item) => item._id === info.event.id);
-    if (job) openJob(job);
-  }
-
-  function handleDateSelect(info: DateSelectArg) {
-    if (info.view.type !== "timeGridWeek") return;
-    calendarRef.current?.getApi().unselect();
-    openNewJobModal(format(info.start, "yyyy-MM-dd"), format(info.start, "HH:mm"), format(info.end, "HH:mm"));
-  }
-
-  function handleDateClick(info: DateClickArg) {
-    if (info.view.type !== "timeGridWeek") return;
-    const start = info.date;
-    const end = new Date(start);
-    end.setHours(end.getHours() + 2);
-    openNewJobModal(format(start, "yyyy-MM-dd"), format(start, "HH:mm"), format(end, "HH:mm"));
-  }
-
   function goToday() {
-    const today = new Date();
-    setCursor(today);
-    if (currentView === "timeGridWeek") calendarRef.current?.getApi().today();
+    setCursor(new Date());
   }
 
   function shift(direction: number) {
-    if (currentView === "timeGridWeek") {
-      const api = calendarRef.current?.getApi();
-      if (direction < 0) api?.prev();
-      else api?.next();
-      return;
-    }
     setCursor((current) => {
       if (currentView === "dayGridMonth") return addMonths(current, direction);
       if (currentView === "multiMonthYear") return addYears(current, direction);
+      if (currentView === "timeGridWeek") return addDays(current, direction * 7);
       return addDays(current, direction);
     });
   }
@@ -256,51 +148,13 @@ export default function JobCalendar() {
     const [year, month] = value.split("-").map(Number);
     if (!year || !month) return;
     const day = Math.min(cursor.getDate(), new Date(year, month, 0).getDate());
-    const next = new Date(year, month - 1, day);
-    setCursor(next);
-    if (currentView === "timeGridWeek") calendarRef.current?.getApi().gotoDate(next);
+    setCursor(new Date(year, month - 1, day));
   }
 
   function jumpToDate(value: string) {
     const [year, month, day] = value.split("-").map(Number);
     if (!year || !month || !day) return;
     setCursor(new Date(year, month - 1, day));
-  }
-
-  function handleDatesSet(info: DatesSetArg) {
-    if (info.view.type !== "timeGridWeek") return;
-    const next = info.view.calendar.getDate();
-    setCursor((current) => (isSameDay(current, next) ? current : next));
-  }
-
-  const handleEventDidMount = useCallback((info: EventMountArg) => {
-    const job = info.event.extendedProps.job as Job | undefined;
-    paintJobEvent(info.el, job?.status);
-    info.el.classList.add("gpw-week-job-event");
-  }, []);
-
-  function renderEventContent(arg: EventContentArg) {
-    const job = arg.event.extendedProps.job as Job | undefined;
-    if (!job) return null;
-    const name = getJobHouseholdTitle(job, jobs);
-    const services = jobServiceLabel(job);
-    const town = jobTown(job);
-    const mark = jobStatusMark(job);
-    const price = job.finalPrice !== undefined ? formatCurrency(job.finalPrice) : "";
-    return (
-      <div className="gpw-week-card">
-        <div className="gpw-week-name">{name}</div>
-        {services ? <div className="gpw-week-services">{services}</div> : null}
-        <div className="gpw-week-time">{formatTimeRange(job.startTime, job.endTime)}</div>
-        {town ? <div className="gpw-week-line">{town}</div> : null}
-        {price || mark ? (
-          <div className="gpw-week-price">
-            {price}
-            {mark ? ` · ${mark.label}` : ""}
-          </div>
-        ) : null}
-      </div>
-    );
   }
 
   if (isMobile) {
@@ -329,7 +183,7 @@ export default function JobCalendar() {
     currentView === "dayGridMonth" ? "Next month" : currentView === "multiMonthYear" ? "Next year" : currentView === "timeGridWeek" ? "Next week" : "Next day";
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <DesktopCalendarChrome
         primary={heading.primary}
         secondary={heading.secondary}
@@ -385,46 +239,16 @@ export default function JobCalendar() {
         ) : null}
 
         {currentView === "timeGridWeek" ? (
-          <div className="calendar-container h-full min-h-0 overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.04)] ring-1 ring-black/[0.06]">
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="timeGridWeek"
-              initialDate={cursor}
-              headerToolbar={false}
-              events={events}
-              eventClick={handleEventClick}
-              eventDidMount={handleEventDidMount}
-              selectable
-              selectMirror
-              selectMinDistance={5}
-              unselectAuto
-              select={handleDateSelect}
-              dateClick={handleDateClick}
-              navLinks
-              navLinkDayClick={(date) => {
-                setCursor(date);
-                setCurrentView("listDay");
-              }}
-              dayHeaderContent={(arg) => <WeekDayHeader arg={arg} jobs={jobs} />}
-              slotMinTime="06:00:00"
-              slotMaxTime="20:00:00"
-              slotDuration="00:30:00"
-              slotLabelInterval="01:00:00"
-              scrollTime="07:00:00"
-              allDaySlot={false}
-              height="100%"
-              expandRows
-              nowIndicator
-              stickyHeaderDates
-              weekends
-              slotLabelFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
-              eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
-              timeZone="local"
-              datesSet={handleDatesSet}
-              eventContent={renderEventContent}
-            />
-          </div>
+          <DesktopWeekBoard
+            cursor={cursor}
+            jobs={jobs}
+            onOpenDay={(date) => {
+              setCursor(date);
+              setCurrentView("listDay");
+            }}
+            onOpenJob={openJob}
+            onAddJob={openNewJobModal}
+          />
         ) : null}
       </div>
 

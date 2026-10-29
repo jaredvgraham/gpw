@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { format, isSameMonth, isToday } from "date-fns";
 import { Plus } from "lucide-react";
 import type { Job } from "@/types";
@@ -9,10 +8,6 @@ import { formatCurrency } from "@/lib/utils";
 import { getJobHouseholdTitle } from "@/lib/household-display";
 import {
   bookedTotal,
-  formatTimeRange,
-  jobServiceLabel,
-  jobStatusMark,
-  jobTown,
   jobSummary,
   jobsOnDate,
   monthGridDays,
@@ -23,12 +18,11 @@ import {
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const MARK_CLASS = {
-  good: "text-green-700",
-  alert: "text-amber-700",
-  muted: "text-gray-400",
-  bad: "text-red-600",
-} as const;
+function shortTime(time: string): string {
+  const [hours, minutes] = time.split(":");
+  const hour = Number(hours) % 12 || 12;
+  return `${hour}:${minutes}`;
+}
 
 export default function DesktopMonthBoard({
   cursor,
@@ -44,27 +38,26 @@ export default function DesktopMonthBoard({
   onAddJob: (jobDate: string, startTime: string, endTime: string) => void;
 }) {
   const days = monthGridDays(cursor);
-
-  useEffect(() => {
-    const todayCell = document.querySelector("[data-today='true']");
-    todayCell?.scrollIntoView({ block: "nearest" });
-  }, [cursor]);
+  const weeks = days.length / 7;
 
   return (
-    <div className="h-full min-h-0 overflow-auto rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.04)] ring-1 ring-black/[0.06]">
-      <div className="sticky top-0 z-20 grid grid-cols-7 border-b border-brand-border bg-white/95 backdrop-blur-sm">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-gray-200">
+      <div className="z-20 grid shrink-0 grid-cols-7 border-b border-brand-border bg-white">
         {WEEKDAYS.map((day, index) => (
           <div
             key={day}
-            className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400 ${
-              index === 0 || index === 6 ? "text-gray-300" : ""
+            className={`px-2.5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] ${
+              index === 0 || index === 6 ? "text-gray-400" : "text-gray-500"
             }`}
           >
             {day}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div
+        className="grid min-h-0 flex-1 grid-cols-7"
+        style={{ gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))` }}
+      >
         {days.map((day) => {
           const inMonth = isSameMonth(day, cursor);
           const today = isToday(day);
@@ -78,8 +71,8 @@ export default function DesktopMonthBoard({
             <div
               key={iso}
               data-today={today ? "true" : undefined}
-            className={`group relative flex min-h-[8.5rem] flex-col border-b border-r border-gray-100 p-1.5 [&:nth-child(7n)]:border-r-0 ${
-                today ? "bg-[#eff6ff]" : inMonth ? "bg-white" : "bg-[#fafafa]"
+            className={`group relative flex min-h-0 flex-col overflow-hidden border-b border-r border-gray-100 p-1.5 [&:nth-child(7n)]:border-r-0 ${
+                inMonth ? "bg-white" : "bg-gray-50"
               }`}
             >
               <button
@@ -102,10 +95,7 @@ export default function DesktopMonthBoard({
                 </span>
                 <span className="flex items-center gap-1">
                   {total > 0 && signal ? (
-                    <span
-                      className="text-[11px] font-semibold tabular-nums"
-                      style={{ color: STATUS_SURFACE[signal].muted }}
-                    >
+                    <span className="text-[11px] font-semibold tabular-nums" style={{ color: STATUS_SURFACE[signal].accent }}>
                       {formatCurrency(total)}
                     </span>
                   ) : null}
@@ -123,7 +113,7 @@ export default function DesktopMonthBoard({
                   </button>
                 </span>
               </div>
-              <div className="pointer-events-none relative z-10 mt-1 flex flex-col gap-1">
+              <div className="pointer-events-none relative z-10 mt-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
                 {dayJobs.map((job) => (
                   <MonthJobCard
                     key={job._id}
@@ -154,9 +144,6 @@ function MonthJobCard({
   onOpen: () => void;
 }) {
   const name = getJobHouseholdTitle(job, jobs);
-  const services = jobServiceLabel(job);
-  const town = jobTown(job);
-  const mark = jobStatusMark(job);
   const surface = STATUS_SURFACE[job.status] ?? STATUS_SURFACE.Scheduled;
   const cancelled = job.status === "Cancelled";
 
@@ -168,50 +155,20 @@ function MonthJobCard({
         onOpen();
       }}
       aria-label={jobSummary(job, name)}
-      className={`pointer-events-auto w-full rounded-lg border px-2 py-1.5 pl-2.5 text-left transition hover:brightness-[0.98] ${
-        muted ? "opacity-70" : ""
+      className={`pointer-events-auto flex w-full items-center gap-1.5 rounded-md py-0.5 pl-1.5 pr-1 text-left transition hover:brightness-[0.98] ${
+        muted ? "opacity-50" : ""
       }`}
-      style={{
-        backgroundColor: surface.bg,
-        borderColor: surface.border,
-        boxShadow: `inset 4px 0 0 ${surface.accent}`,
-      }}
+      style={{ backgroundColor: surface.bg, boxShadow: `inset 2px 0 0 ${surface.accent}` }}
     >
-      <span
-        className={`block truncate text-[13px] font-semibold leading-tight ${
-          cancelled ? "line-through" : ""
-        }`}
-        style={{ color: surface.ink }}
-      >
+      <span className="w-8 shrink-0 text-[11px] font-semibold tabular-nums leading-4" style={{ color: surface.accent }}>
+        {shortTime(job.startTime)}
+      </span>
+      <span className={`min-w-0 flex-1 truncate text-[12px] font-medium leading-4 text-gray-900 ${cancelled ? "line-through" : ""}`}>
         {name}
       </span>
-      {services ? (
-        <span className="mt-0.5 block text-[12px] font-semibold leading-snug" style={{ color: surface.ink }}>
-          {services}
-        </span>
-      ) : null}
-      <span className="mt-0.5 block truncate text-[11px] font-semibold tabular-nums" style={{ color: surface.muted }}>
-        {formatTimeRange(job.startTime, job.endTime)}
-      </span>
-      {town ? (
-        <span className="mt-0.5 block truncate text-[11px] leading-tight" style={{ color: surface.ink, opacity: 0.65 }}>
-          {town}
-        </span>
-      ) : null}
-      {job.finalPrice !== undefined || mark ? (
-        <span className="mt-1 flex items-baseline justify-between gap-2">
-          {job.finalPrice !== undefined ? (
-            <span className="truncate text-[12px] font-semibold tabular-nums" style={{ color: surface.ink }}>
-              {formatCurrency(job.finalPrice)}
-            </span>
-          ) : (
-            <span />
-          )}
-          {mark ? (
-            <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide ${MARK_CLASS[mark.tone]}`}>
-              {mark.label}
-            </span>
-          ) : null}
+      {job.finalPrice !== undefined ? (
+        <span className="shrink-0 text-[11px] font-medium tabular-nums leading-4 text-gray-400">
+          {formatCurrency(job.finalPrice)}
         </span>
       ) : null}
     </button>

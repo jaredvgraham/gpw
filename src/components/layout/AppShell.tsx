@@ -62,7 +62,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div
               className={
                 isCalendar
-                  ? "flex-1 flex flex-col min-h-0 overflow-hidden p-0 md:p-4 md:overflow-auto"
+                  ? "flex-1 flex flex-col min-h-0 overflow-hidden p-0 md:overflow-hidden md:p-4"
                   : isToday
                     ? "flex-1 flex flex-col min-h-0 overflow-auto bg-[#f4f5f7] px-4 pt-0 pb-4 md:overflow-hidden md:bg-transparent md:p-6 md:pt-6 md:pb-6"
                     : "p-4 md:p-8 pt-0 md:pt-8 pb-4 md:pb-8"
