@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Job } from "@/types";
 import StatusBadge from "@/components/ui/StatusBadge";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import {
   formatCurrency,
   formatDate,
@@ -56,7 +57,12 @@ export default function JobTable({ jobs }: { jobs: Job[] }) {
                   <Link href={`/jobs/${job._id}`} className="block">
                     <p className="font-semibold text-brand-black">{getCustomerName(job)}</p>
                     {customer?.streetAddress && (
-                      <p className="max-w-[16rem] truncate text-xs text-gray-500">{customer.streetAddress}</p>
+                      <p className="flex max-w-[16rem] items-center gap-1 text-xs text-gray-500">
+                        <span className="truncate">{customer.streetAddress}</span>
+                        <CopyAddressButton
+                          text={[customer.streetAddress, customer.city, customer.state].filter(Boolean).join(", ")}
+                        />
+                      </p>
                     )}
                   </Link>
                 </td>

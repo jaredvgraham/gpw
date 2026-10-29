@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Home, Link2, Unlink, Users } from "lucide-react";
 import type { Customer, Household } from "@/types";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import { getCustomerAddress } from "@/lib/utils";
 
 export default function HouseholdPanel({
@@ -70,7 +71,10 @@ export default function HouseholdPanel({
 
       {hasHousehold ? (
         <div className="mb-4 rounded-xl bg-brand-gray/40 px-4 py-3 text-sm text-gray-700">
-          <p className="font-medium text-brand-black">{address}</p>
+          <p className="flex items-center gap-1 font-medium text-brand-black">
+            <span className="min-w-0">{address}</span>
+            <CopyAddressButton text={address} />
+          </p>
           <p className="mt-1 text-gray-500">
             Jobs from everyone below show up in household history.
           </p>

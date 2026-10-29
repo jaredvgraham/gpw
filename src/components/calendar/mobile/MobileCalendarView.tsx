@@ -46,6 +46,7 @@ import DataSyncIndicator from "@/components/layout/DataSyncIndicator";
 import MobileMenu from "@/components/layout/MobileMenu";
 import JobDetailsModal from "@/components/jobs/JobDetailsModal";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import ServicePill from "@/components/calendar/ServicePill";
 import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import { useJobModals } from "@/contexts/JobModalContext";
@@ -493,7 +494,10 @@ export default function MobileCalendarView({ jobs, loading, wide = false }: Mobi
                         )}
                       </div>
                       {address && (
-                        <p className="text-[11px] text-gray-500 mt-0.5 truncate">{address}</p>
+                        <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-gray-500">
+                          <span className="truncate">{address}</span>
+                          <CopyAddressButton text={address} className="h-6 w-6" />
+                        </p>
                       )}
                     </div>
 

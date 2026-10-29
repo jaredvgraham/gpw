@@ -10,6 +10,7 @@ import {
   getJobDuration,
 } from "@/lib/utils";
 import Link from "next/link";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import { MapPin, Clock, Phone } from "lucide-react";
 
 export default function JobCard({ job }: { job: Job }) {
@@ -26,7 +27,12 @@ export default function JobCard({ job }: { job: Job }) {
           {customer && (
             <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
-              {[customer.streetAddress, customer.city].filter(Boolean).join(", ")}
+              <span className="min-w-0 truncate">
+                {[customer.streetAddress, customer.city].filter(Boolean).join(", ")}
+              </span>
+              <CopyAddressButton
+                text={[customer.streetAddress, customer.city, customer.state].filter(Boolean).join(", ")}
+              />
             </p>
           )}
         </div>

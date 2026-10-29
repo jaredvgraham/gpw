@@ -8,6 +8,7 @@ import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import { formatTimeRange, STATUS_SURFACE } from "@/components/calendar/desktop/model";
 import { getJobDateOnly } from "@/lib/dates";
 import { getJobHouseholdDisplay } from "@/lib/household-display";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import { formatCurrency, getCustomerAddress, getJobDuration } from "@/lib/utils";
 import { useAppData } from "@/contexts/AppDataContext";
 import { notifyJobSaved, useJobModals } from "@/contexts/JobModalContext";
@@ -140,7 +141,10 @@ export default function JobDetailsModal({
         </p>
 
         {customer ? (
-          <p className="mt-2 text-[15px] leading-relaxed text-gray-500">{getCustomerAddress(customer)}</p>
+          <p className="mt-2 flex items-start gap-1 text-[15px] leading-relaxed text-gray-500">
+            <span className="min-w-0">{getCustomerAddress(customer)}</span>
+            <CopyAddressButton text={getCustomerAddress(customer)} className="-mt-1" />
+          </p>
         ) : null}
         {(customer?.phone || customer?.email) && (
           <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[15px]">

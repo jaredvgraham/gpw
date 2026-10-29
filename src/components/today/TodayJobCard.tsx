@@ -16,6 +16,7 @@ import {
 import type { Customer, Job } from "@/types";
 import ServicePill from "@/components/calendar/ServicePill";
 import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import { getJobServiceEntries } from "@/lib/calendar-mobile";
 import { getJobDateOnly } from "@/lib/dates";
 import { getItineraryStatus } from "@/lib/today-itinerary";
@@ -224,7 +225,10 @@ export default function TodayJobCard({
             <JobCustomerHeader job={job} showMembers={false} />
           </div>
           {hasAddress && (
-            <p className="mt-1 truncate pl-8 text-sm text-gray-600">{address}</p>
+            <p className="mt-1 flex min-w-0 items-center gap-1 pl-8 text-sm text-gray-600">
+              <span className="truncate">{address}</span>
+              <CopyAddressButton text={address} />
+            </p>
           )}
           {serviceEntries.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1 pl-8">
@@ -405,7 +409,8 @@ export default function TodayJobCard({
             {hasAddress && (
               <p className="flex items-start gap-2 text-xs leading-snug text-gray-700">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
-                {address}
+                <span className="min-w-0 flex-1">{address}</span>
+                <CopyAddressButton text={address} className="-mr-1 -mt-1" />
               </p>
             )}
             {customer?.phone && (

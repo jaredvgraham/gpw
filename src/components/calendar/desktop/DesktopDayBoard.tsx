@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import type { Job } from "@/types";
 import { getNewJobTimePrefill } from "@/lib/calendar-mobile";
 import { formatCurrency, formatTime, getJobAddress } from "@/lib/utils";
@@ -111,7 +112,10 @@ function DayJobCard({ job, jobs, onOpen }: { job: Job; jobs: Job[]; onOpen: () =
           <span className="mt-1 block text-sm font-medium leading-snug text-gray-700">{services}</span>
         ) : null}
         {address ? (
-          <span className="mt-0.5 block truncate text-sm leading-snug text-gray-500">{address}</span>
+          <span className="mt-0.5 flex min-w-0 items-center gap-1 text-sm leading-snug text-gray-500">
+            <span className="truncate">{address}</span>
+            <CopyAddressButton text={address} />
+          </span>
         ) : null}
       </span>
       <span className="text-right">

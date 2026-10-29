@@ -7,7 +7,14 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAppData } from "@/contexts/AppDataContext";
-import { EXPENSE_PAYERS, EXPENSE_TYPES, type ExpensePayer, type ExpenseType } from "@/lib/expenses";
+import {
+  EXPENSE_COLORS,
+  EXPENSE_PAYERS,
+  EXPENSE_TYPES,
+  NET_COLOR,
+  type ExpensePayer,
+  type ExpenseType,
+} from "@/lib/expenses";
 import {
   computeOnTarget,
   computeSplit,
@@ -239,7 +246,7 @@ export default function SplitPage() {
               />
             )}
 
-            <SettlementMath figures={settlement} />
+            <SettlementMath figures={settlement} expenses={summary.expenses} />
           </section>
 
           <div className="space-y-4 xl:grid xl:grid-cols-3 xl:items-start xl:gap-4 xl:space-y-0">
@@ -446,7 +453,101 @@ function OnTarget({
   );
 }
 
-function SettlementMath({ figures }: { figures: SettlementFigures }) {
+function SplitPool({
+  gross,
+  expenses,
+  net,
+  rows,
+}: {
+  gross: number;
+  expenses: number;
+  net: number;
+  rows: Expense[];
+}) {
+  const slices = EXPENSE_TYPES.map((type) => ({
+    type,
+    amount: rows.filter((row) => row.type === type).reduce((sum, row) => sum + row.amount, 0),
+  }))
+    .filter((slice) => slice.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const expenseSum = slices.reduce((sum, slice) => sum + slice.amount, 0);
+  const showBar = gross > 0 || expenseSum > 0;
+  const scale = net < 0 ? Math.max(expenseSum, 1) : Math.max(gross, 1);
+
+  return (
+    <div className="max-w-xl">
+      <p className="text-[15px] text-gray-500">
+        <span className="font-medium text-gray-950">{formatCurrency(gross)}</span> completed
+        <span className="px-2 text-gray-300">−</span>
+        <span className="font-medium text-gray-950">{formatCurrency(expenses)}</span> expenses
+      </p>
+      {showBar ? (
+        <div className="mt-3">
+          <div className="flex h-4 w-full min-w-0 overflow-hidden rounded-full bg-black/5">
+            {slices.map((slice) => (
+              <div
+                key={slice.type}
+                className="h-full min-w-0"
+                style={{
+                  width: `${(slice.amount / scale) * 100}%`,
+                  backgroundColor: EXPENSE_COLORS[slice.type],
+                }}
+                title={`${slice.type} ${formatCurrency(slice.amount)}`}
+              />
+            ))}
+            {net > 0 ? (
+              <div
+                className="h-full min-w-0 flex-1"
+                style={{ backgroundColor: NET_COLOR }}
+                title={`Net ${formatCurrency(net)}`}
+              />
+            ) : null}
+          </div>
+          <div className="mt-3 grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-2">
+            {slices.map((slice) => (
+              <div key={slice.type} className="col-span-4 grid grid-cols-subgrid items-baseline">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm ring-1 ring-black/10"
+                  style={{ backgroundColor: EXPENSE_COLORS[slice.type] }}
+                />
+                <span className="min-w-0 truncate text-sm font-medium text-gray-950">{slice.type}</span>
+                <span className="text-sm font-semibold tabular-nums text-gray-950">
+                  {formatCurrency(slice.amount)}
+                </span>
+                <span className="w-8 text-right text-sm tabular-nums text-gray-400">
+                  {gross > 0 ? `${Math.round((slice.amount / gross) * 100)}%` : ""}
+                </span>
+              </div>
+            ))}
+            {net > 0 ? (
+              <div className="col-span-4 grid grid-cols-subgrid items-baseline">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm ring-1 ring-black/10"
+                  style={{ backgroundColor: NET_COLOR }}
+                />
+                <span className="text-sm font-medium text-gray-950">To split</span>
+                <span className="text-sm font-semibold tabular-nums text-gray-950">
+                  {formatCurrency(net)}
+                </span>
+                <span className="w-8 text-right text-sm tabular-nums text-gray-400">
+                  {gross > 0 ? `${Math.round((net / gross) * 100)}%` : ""}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SettlementMath({
+  figures,
+  expenses: expenseRows,
+}: {
+  figures: SettlementFigures;
+  expenses: Expense[];
+}) {
   const {
     gross,
     expenses,
@@ -462,14 +563,10 @@ function SettlementMath({ figures }: { figures: SettlementFigures }) {
 
   return (
     <div className="space-y-5 border-t border-brand-border px-4 py-4 xl:px-6 xl:py-5">
-      <div className="max-w-xl space-y-1.5 text-base font-medium leading-snug tabular-nums text-brand-black">
-        <p>
-          {formatCurrency(gross)} − {formatCurrency(expenses)} = {formatCurrency(net)}
-        </p>
-        <p>
-          {formatCurrency(net)} ÷ 2 = {formatCurrency(each)} each
-        </p>
-      </div>
+      <SplitPool gross={gross} expenses={expenses} net={net} rows={expenseRows} />
+      <p className="max-w-xl text-base font-medium leading-snug tabular-nums text-brand-black">
+        {formatCurrency(net)} ÷ 2 = {formatCurrency(each)} each
+      </p>
 
       <div className="space-y-0.5 text-sm text-gray-600">
         <p>Jared paid {formatCurrency(jaredPaid)}</p>

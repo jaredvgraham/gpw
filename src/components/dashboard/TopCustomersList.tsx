@@ -1,6 +1,7 @@
 import { formatCurrency } from "@/lib/utils";
 import type { CustomerInsight } from "@/lib/household-display";
 import HouseholdBadge from "@/components/customers/HouseholdBadge";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 
 const BAR_COLORS = {
   blue: "bg-brand-blue",
@@ -50,7 +51,10 @@ export default function TopCustomersList({
                 </p>
               )}
               {item.address && (
-                <p className="mt-0.5 pl-7 text-xs text-gray-400">{item.address}</p>
+                <p className="mt-0.5 flex items-center gap-1 pl-7 text-xs text-gray-400">
+                  <span className="min-w-0 truncate">{item.address}</span>
+                  <CopyAddressButton text={item.address} />
+                </p>
               )}
             </div>
             <span className="shrink-0 font-bold tabular-nums text-brand-black">

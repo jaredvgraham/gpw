@@ -6,6 +6,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Input from "@/components/ui/Input";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import HouseholdBadge from "@/components/customers/HouseholdBadge";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import type { Customer } from "@/types";
 import { MapPin, Phone, Mail } from "lucide-react";
 
@@ -116,10 +117,17 @@ export default function CustomersPage() {
                 )}
                 {(customer.streetAddress || customer.city) && (
                   <p className="flex items-center gap-2">
-                    <MapPin className="h-3.5 w-3.5" />
-                    {[customer.streetAddress, customer.city, customer.state]
-                      .filter(Boolean)
-                      .join(", ")}
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span className="min-w-0">
+                      {[customer.streetAddress, customer.city, customer.state]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </span>
+                    <CopyAddressButton
+                      text={[customer.streetAddress, customer.city, customer.state]
+                        .filter(Boolean)
+                        .join(", ")}
+                    />
                   </p>
                 )}
               </div>
@@ -154,7 +162,14 @@ export default function CustomersPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-gray-700">{customer.phone}</td>
                   <td className="px-4 py-3 text-gray-600">{customer.email || "—"}</td>
                   <td className="px-4 py-3 text-gray-600">
-                    {[customer.streetAddress, customer.city, customer.state].filter(Boolean).join(", ") || "—"}
+                    <span className="inline-flex items-center gap-1">
+                      <span>
+                        {[customer.streetAddress, customer.city, customer.state].filter(Boolean).join(", ") || "—"}
+                      </span>
+                      <CopyAddressButton
+                        text={[customer.streetAddress, customer.city, customer.state].filter(Boolean).join(", ")}
+                      />
+                    </span>
                   </td>
                 </tr>
               ))}

@@ -5,6 +5,7 @@ import { getJobDateOnly } from "@/lib/dates";
 import type { Job } from "@/types";
 import { formatTime, getJobAddress } from "@/lib/utils";
 import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import { STATUS_COLORS } from "@/lib/constants";
 import { getNewJobTimePrefill } from "@/lib/calendar-mobile";
 import { X, Plus, MapPin, Clock } from "lucide-react";
@@ -81,7 +82,8 @@ export default function MobileDaySheet({
                   {address && (
                     <p className="mt-1 flex items-start gap-1.5 text-sm text-gray-600">
                       <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                      {address}
+                      <span className="min-w-0 flex-1">{address}</span>
+                      <CopyAddressButton text={address} className="-mt-1" />
                     </p>
                   )}
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500">

@@ -8,6 +8,7 @@ import JobTable from "@/components/jobs/JobTable";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import HouseholdPanel from "@/components/customers/HouseholdPanel";
 import type { Customer, Household, Job } from "@/types";
+import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import { getCustomerAddress } from "@/lib/utils";
 import { MapPin, Phone, Mail } from "lucide-react";
 import { useJobModals } from "@/contexts/JobModalContext";
@@ -94,8 +95,9 @@ export default function CustomerDetailPage() {
             </div>
           )}
           <div className="flex items-center gap-2 text-gray-600">
-            <MapPin className="h-4 w-4 text-gray-400" />
-            {getCustomerAddress(customer)}
+            <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
+            <span className="min-w-0">{getCustomerAddress(customer)}</span>
+            <CopyAddressButton text={getCustomerAddress(customer)} />
           </div>
         </div>
       </div>
