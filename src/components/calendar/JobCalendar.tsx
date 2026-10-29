@@ -26,7 +26,7 @@ import DesktopWeekBoard from "@/components/calendar/desktop/DesktopWeekBoard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { useAppData } from "@/contexts/AppDataContext";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useLayoutMode } from "@/hooks/useLayoutMode";
 import {
   bookedTotal,
   dueTotal,
@@ -77,7 +77,7 @@ function buildStats(jobs: Job[]): CalendarStat[] {
 }
 
 export default function JobCalendar() {
-  const isMobile = useIsMobile();
+  const { mode, ready } = useLayoutMode();
   const { openNewJob } = useJobModals();
   const { jobs, jobsLoading: loading } = useAppData();
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -157,10 +157,18 @@ export default function JobCalendar() {
     setCursor(new Date(year, month - 1, day));
   }
 
-  if (isMobile) {
+  if (!ready) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (mode !== "desktop") {
     return (
       <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
-        <MobileCalendarView jobs={jobs} loading={loading} />
+        <MobileCalendarView jobs={jobs} loading={loading} wide={mode === "wide"} />
       </div>
     );
   }

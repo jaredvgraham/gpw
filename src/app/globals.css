@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* A real desktop is wide and tall, or wide with a mouse.
+   An unfolded Duo held sideways is wide, short, and touch-only, so `md` stays off
+   and the phone layout is used instead. Keep this in sync with useLayoutMode. */
+@custom-variant md {
+  @media (width >= 768px) and (height >= 801px), (width >= 768px) and (pointer: fine) {
+    @slot;
+  }
+}
+
+@custom-variant max-md {
+  @media (width < 768px), (height <= 800px) and (pointer: coarse) {
+    @slot;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #111827;
@@ -722,16 +737,43 @@ body {
   min-height: calc(5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);
 }
 
-/* Exact inset for full-height pages (e.g. calendar) — no extra scroll buffer */
-@media (max-width: 767px) {
+/* Exact inset for full-height pages (e.g. calendar) — no extra scroll buffer.
+   The second clause is the unfolded Duo held sideways. */
+@media (width < 768px), (height <= 800px) and (pointer: coarse) {
   .calendar-bottom-nav-inset {
     padding-bottom: calc(3.25rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
   }
-}
 
-@media (max-width: 767px) {
   .main-with-bottom-nav {
     scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);
+  }
+}
+
+/* Two panes on an unfolded foldable. The middle column is the hinge. */
+.duo-panes {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  position: relative;
+  background: white;
+}
+
+@media (horizontal-viewport-segments: 2) {
+  .duo-panes {
+    display: grid;
+    grid-template-columns:
+      env(viewport-segment-width 0 0)
+      calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0))
+      minmax(0, 1fr);
+  }
+
+  .duo-panes > :first-child {
+    grid-column: 1;
+  }
+
+  .duo-panes > :last-child {
+    grid-column: 3;
   }
 }
 

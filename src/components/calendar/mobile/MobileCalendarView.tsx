@@ -76,9 +76,10 @@ const PACKED_DAY_JOB_COUNT = 3;
 interface MobileCalendarViewProps {
   jobs: Job[];
   loading: boolean;
+  wide?: boolean;
 }
 
-export default function MobileCalendarView({ jobs, loading }: MobileCalendarViewProps) {
+export default function MobileCalendarView({ jobs, loading, wide = false }: MobileCalendarViewProps) {
   const pathname = usePathname();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -247,15 +248,20 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0 bg-white relative">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-white">
         {loading && jobs.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
             <LoadingSpinner />
           </div>
         )}
 
+        <div className={wide ? "duo-panes" : "flex min-h-0 flex-1 flex-col"}>
         <div
-          className={`${CALENDAR_FLEX[dayPanelSize]} overflow-y-auto overscroll-contain`}
+          className={
+            wide
+              ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+              : `${CALENDAR_FLEX[dayPanelSize]} overflow-y-auto overscroll-contain`
+          }
         >
         <div className="shrink-0 grid grid-cols-7 border-b border-brand-border">
           {WEEKDAYS.map((day) => (
@@ -268,7 +274,18 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
           ))}
         </div>
 
-        <div className="shrink-0 grid grid-cols-7 auto-rows-fr border-l border-brand-border">
+        <div
+          className={
+            wide
+              ? "grid min-h-0 flex-1 grid-cols-7 border-l border-brand-border"
+              : "grid shrink-0 auto-rows-fr grid-cols-7 border-l border-brand-border"
+          }
+          style={
+            wide
+              ? { gridTemplateRows: `repeat(${calendarDays.length / 7}, minmax(0, 1fr))` }
+              : undefined
+          }
+        >
           {calendarDays.map((day) => {
             const dateStr = format(day, "yyyy-MM-dd");
             const dayJobs = getJobsForDate(jobs, dateStr);
@@ -283,7 +300,9 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
                 key={dateStr}
                 type="button"
                 onClick={() => selectDate(day)}
-                className={`min-h-[72px] border-r border-b border-brand-border p-1 text-left flex flex-col ${
+                className={`border-r border-b border-brand-border p-1 text-left flex flex-col ${
+                  wide ? "min-h-0 overflow-hidden" : "min-h-[72px]"
+                } ${
                   selected
                     ? "bg-brand-blue text-white"
                     : inMonth
@@ -356,8 +375,13 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
         </div>
 
         <div
-          className={`${DAY_PANEL_FLEX[dayPanelSize]} flex flex-col min-h-0 border-t-2 border-brand-border bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)] overflow-hidden`}
+          className={
+            wide
+              ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l border-brand-border bg-white"
+              : `${DAY_PANEL_FLEX[dayPanelSize]} flex min-h-0 flex-col overflow-hidden border-t-2 border-brand-border bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]`
+          }
         >
+          {wide ? null : (
           <button
             type="button"
             aria-label={
@@ -377,8 +401,9 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
               {handleLabel.text}
             </span>
           </button>
+          )}
 
-          <div className="flex items-center justify-between gap-2 px-4 pb-2 border-b border-brand-border shrink-0">
+          <div className={`flex shrink-0 items-center justify-between gap-2 border-b border-brand-border px-4 pb-2 ${wide ? "pt-3" : ""}`}>
             <div className="flex items-center gap-2 min-w-0">
               <CalendarDays className="h-4 w-4 text-gray-400 shrink-0" />
               <h3 className="text-sm font-bold text-brand-black truncate">
@@ -501,6 +526,7 @@ export default function MobileCalendarView({ jobs, loading }: MobileCalendarView
               <div aria-hidden className="w-full shrink-0 pb-4 pointer-events-none" />
             )}
           </div>
+        </div>
         </div>
       </div>
 
