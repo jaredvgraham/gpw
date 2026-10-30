@@ -555,22 +555,20 @@ function buildEveryDayBuckets(jobs: Job[], start: string, end: string): RevenueP
   return points;
 }
 
-function buildClippedWeekBuckets(jobs: Job[], start: string, end: string): RevenuePoint[] {
-  const rangeStart = parseIsoDate(start);
+function buildWorkWeekBuckets(jobs: Job[], start: string, end: string): RevenuePoint[] {
   const rangeEnd = parseIsoDate(end);
   const points: RevenuePoint[] = [];
-  let cursor = rangeStart;
+  let cursor = startOfWeek(parseIsoDate(start), { weekStartsOn: WEEK_STARTS_ON });
 
   while (cursor <= rangeEnd) {
-    const weekStart = max([startOfWeek(cursor, { weekStartsOn: WEEK_STARTS_ON }), rangeStart]);
-    const weekEnd = min([endOfWeek(cursor, { weekStartsOn: WEEK_STARTS_ON }), rangeEnd]);
-    const startIso = format(weekStart, "yyyy-MM-dd");
+    const weekEnd = endOfWeek(cursor, { weekStartsOn: WEEK_STARTS_ON });
+    const startIso = format(cursor, "yyyy-MM-dd");
     const endIso = format(weekEnd, "yyyy-MM-dd");
     const bucketJobs = jobs.filter((job) => isInRange(job, startIso, endIso));
     points.push({
       key: startIso,
       label: formatRangeLabel(startIso, endIso),
-      shortLabel: format(weekStart, "MMM d"),
+      shortLabel: format(cursor, cursor.getMonth() === weekEnd.getMonth() ? "MMM d" : "M/d"),
       startDate: startIso,
       endDate: endIso,
       ...aggregateJobs(bucketJobs),
@@ -610,11 +608,12 @@ export function computeRangeInsights(jobs: Job[], start: string, end: string): R
   const completedJobs = rangeJobs.filter((job) => job.status === "Completed");
   const pricedJobs = rangeJobs.filter((job) => jobRevenue(job) > 0);
   const span = differenceInCalendarDays(parseIsoDate(to), parseIsoDate(from));
+  // A Monday–Sunday week is 6 days apart. Longer ranges use the full work weeks they touch.
   const buckets =
-    span <= 31
+    span <= 6
       ? buildEveryDayBuckets(rangeJobs, from, to)
       : span <= 180
-        ? buildClippedWeekBuckets(rangeJobs, from, to)
+        ? buildWorkWeekBuckets(jobs, from, to)
         : buildClippedMonthBuckets(rangeJobs, from, to);
 
   return {
@@ -641,7 +640,7 @@ export function computeRangeInsights(jobs: Job[], start: string, end: string): R
     topCustomers: buildTopCustomers(rangeJobs),
     buckets,
     bucketDescription:
-      span <= 31 ? "Each day in the range" : span <= 180 ? "Each week in the range" : "Each month in the range",
+      span <= 6 ? "Each day in the range" : span <= 180 ? "Work weeks" : "Each month in the range",
   };
 }
 
