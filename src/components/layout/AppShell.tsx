@@ -21,12 +21,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
   const isToday = pathname === "/today";
   const isDashboard = pathname === "/dashboard";
+  const isSimulation = pathname === "/simulation" || pathname.startsWith("/simulation/");
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPath, setMenuPath] = useState(pathname);
 
   if (pathname !== menuPath) {
     setMenuPath(pathname);
     setMenuOpen(false);
+  }
+
+  if (isSimulation) {
+    return <>{children}</>;
   }
 
   return (

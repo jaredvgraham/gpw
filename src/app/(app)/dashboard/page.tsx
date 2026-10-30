@@ -314,7 +314,7 @@ export default function DashboardPage() {
     <div className="phone-nav-inset flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
       <div className="max-md:contents md:mb-6 md:shrink-0 md:space-y-3 md:border-b md:border-black/6 md:pb-4">
         <div
-          className="sticky top-0 z-20 mb-3 grid grid-cols-3 gap-1 border-b border-black/6 bg-white px-4 py-2 md:static md:mb-0 md:inline-flex md:border-0 md:bg-transparent md:px-0 md:py-0"
+          className="sticky top-0 z-20 mb-3 grid grid-cols-3 gap-1 border-b border-black/6 bg-white px-4 py-2 md:static md:mb-0 md:flex md:items-center md:gap-2 md:border-0 md:bg-transparent md:px-0 md:py-0"
           role="tablist"
           aria-label="Report"
         >
@@ -334,6 +334,12 @@ export default function DashboardPage() {
               {item.label}
             </button>
           ))}
+          <Link
+            href="/simulation"
+            className="col-span-3 mt-1 justify-self-center py-1 text-[13px] text-gray-500 transition-colors hover:text-gray-950 md:col-auto md:ml-4 md:mt-0 md:justify-self-auto"
+          >
+            Simulation <span aria-hidden>→</span>
+          </Link>
         </div>
         <div className="mb-6 flex flex-col gap-3 px-4 sm:flex-row sm:flex-wrap sm:items-center md:mb-0 md:px-0">
           <InsightsBreadcrumb
@@ -385,6 +391,19 @@ export default function DashboardPage() {
               <div className="mt-3">
                 <OwnerBoard part="money" snapshot={ownerSnapshot} leadsReady={leadsReady} />
               </div>
+              <Link
+                href="/simulation"
+                className="group mt-10 block border border-black/8 bg-[#f1ebe0] px-5 py-5 transition-colors hover:border-black/20"
+              >
+                <div className="flex items-baseline justify-between gap-4">
+                  <p className="text-[11px] font-medium tracking-[0.18em] uppercase text-black/40">Laboratory</p>
+                  <span className="text-sm text-black/45 transition-colors group-hover:text-black">Open →</span>
+                </div>
+                <p className="mt-2 font-serif text-[1.65rem] leading-none tracking-tight text-[#1c1915]">Simulation</p>
+                <p className="mt-2 max-w-[42ch] text-sm leading-snug text-black/55">
+                  A living model of the business. Turn a valve, watch profit move.
+                </p>
+              </Link>
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-medium text-gray-500">{chartTitle}</h2>

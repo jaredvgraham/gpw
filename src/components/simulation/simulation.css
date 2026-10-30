@@ -1,0 +1,1354 @@
+/* ==========================================================================
+   Simulation — an independent plate.
+   Warm paper, drafting marks, ink washes. Not the app. Not a dashboard.
+   ========================================================================== */
+
+.sim {
+  --paper: #f1ebe0;
+  --paper-2: #e7dfd1;
+  --ink: #1c1914;
+  --ink-2: #5a5348;
+  --ink-3: #8a8174;
+  --ink-4: #b3aa9c;
+  --rule: rgba(28, 25, 20, 0.12);
+  --rule-strong: rgba(28, 25, 20, 0.28);
+
+  --ink-lead: #2a4a86;
+  --ink-work: #1a6a66;
+  --ink-cash: #c56a14;
+  --ink-yield: #2d6a2e;
+  --ink-heat: #c14a22;
+  --ink-ember: #d4893a;
+  --ink-steel: #6a6560;
+  --ink-loss: #a11b36;
+
+  --display: var(--font-instrument), "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  --sans: var(--font-geist-sans), system-ui, sans-serif;
+  --mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --ease: cubic-bezier(0.2, 0.75, 0.2, 1);
+
+  position: relative;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  color-scheme: light;
+}
+
+.sim::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 12% -8%, rgba(197, 106, 20, 0.07), transparent 52%),
+    radial-gradient(ellipse at 92% 108%, rgba(26, 106, 102, 0.06), transparent 50%),
+    repeating-radial-gradient(circle at 0 0, rgba(28, 25, 20, 0.035) 0 0.6px, transparent 0.7px 3px);
+  z-index: 0;
+}
+
+.sim > * {
+  position: relative;
+  z-index: 1;
+}
+
+.sim * {
+  box-sizing: border-box;
+}
+
+.sim button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.sim :is(a, button, [role="button"]):is(:active, [data-pressed], [data-pending]) {
+  background-image: none !important;
+}
+
+.sim-kicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sim-frame {
+  display: grid;
+  grid-template-rows: 52px minmax(320px, 1fr) auto auto auto;
+  min-height: 100dvh;
+  height: auto;
+  padding: 0 clamp(16px, 2.2vw, 40px) 12px;
+}
+
+.sim-stage {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.sim-organism {
+  display: grid;
+  grid-template-rows: minmax(280px, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.sim-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 20px;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--rule);
+}
+
+.sim-rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 10px 6px 0;
+}
+
+.sim-rail-group[data-hot="true"] {
+  background: color-mix(in srgb, var(--ink-work) 6%, transparent);
+}
+
+.sim-rail-group .valve {
+  padding: 1px 0 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Chrome
+   -------------------------------------------------------------------------- */
+
+.sim-chrome {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid var(--rule);
+  min-width: 0;
+}
+
+.sim-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: -4px;
+  padding: 4px 6px;
+  color: var(--ink-2);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sim-back:hover {
+  color: var(--ink);
+}
+
+.sim-back svg {
+  width: 13px;
+  height: 13px;
+}
+
+.sim-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sim-brand strong {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.sim-brand span {
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sim-chrome-space {
+  flex: 1;
+}
+
+.sim-chrome-yield {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sim-chrome-yield b {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--ink-yield);
+}
+
+.sim-chrome-yield[data-neg="true"] b {
+  color: var(--ink-loss);
+}
+
+.sim-chrome-yield span {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.sim-cal {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.sim-cal button {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  border-bottom: 1px solid transparent;
+}
+
+.sim-cal button:hover {
+  color: var(--ink-2);
+}
+
+.sim-cal button[aria-pressed="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.sim-textbtn {
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  padding: 4px 0;
+}
+
+.sim-textbtn em {
+  font-style: italic;
+  font-family: var(--display);
+  margin-left: 6px;
+  color: var(--ink);
+}
+
+.sim-textbtn[aria-pressed="true"] em {
+  color: var(--ink-work);
+}
+
+.sim-textbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sim-textbtn[data-kind="reset"]:not(:disabled):hover {
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   Body: plate + vessel
+   -------------------------------------------------------------------------- */
+
+.sim-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.sim-plate {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.sim-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.sim-overlay > * {
+  pointer-events: auto;
+}
+
+.sim-overlay .sim-op,
+.sim-overlay .sim-cost-caption,
+.sim-overlay .sim-reads,
+.sim-overlay .sim-yield {
+  pointer-events: none;
+}
+
+.sim-overlay .sim-valves {
+  pointer-events: auto;
+}
+
+.sim-plate::before,
+.sim-plate::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  border-color: var(--ink-4);
+  border-style: solid;
+  z-index: 2;
+}
+
+.sim-plate::before {
+  top: 6px;
+  left: 0;
+  border-width: 1px 0 0 1px;
+}
+
+.sim-plate::after {
+  right: 8px;
+  bottom: 8px;
+  border-width: 0 1px 1px 0;
+}
+
+.sim-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sim-wash {
+  mix-blend-mode: multiply;
+  fill-opacity: 0.38;
+  transition: fill-opacity 0.25s var(--ease);
+}
+
+.sim-wash[data-hot="true"] {
+  fill-opacity: 0.62;
+}
+
+.sim-band {
+  mix-blend-mode: multiply;
+  fill-opacity: 0.72;
+}
+
+.sim-band[data-hot="true"] {
+  fill-opacity: 0.9;
+}
+
+.sim-wash[data-tone="lead"],
+.sim-band[data-tone="lead"] {
+  fill: var(--ink-lead);
+}
+
+.sim-wash[data-tone="work"],
+.sim-band[data-tone="work"] {
+  fill: var(--ink-work);
+}
+
+.sim-wash[data-tone="cash"],
+.sim-band[data-tone="cash"] {
+  fill: var(--ink-cash);
+}
+
+.sim-wash[data-tone="yield"],
+.sim-band[data-tone="yield"] {
+  fill: var(--ink-yield);
+}
+
+.sim-wash[data-tone="heat"],
+.sim-band[data-tone="heat"] {
+  fill: var(--ink-heat);
+}
+
+.sim-wash[data-tone="loss"],
+.sim-band[data-tone="loss"] {
+  fill: var(--ink-loss);
+}
+
+.sim-ghost {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.28;
+}
+
+.sim-tank {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.25;
+  opacity: 0.55;
+}
+
+.sim-cap-line {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+
+.sim-overflow {
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+
+.sim-vessel-ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.15;
+  opacity: 0.85;
+}
+
+.sim-vessel-ring.inner {
+  opacity: 0.28;
+}
+
+.sim-be {
+  stroke: var(--ink);
+  stroke-width: 1.25;
+}
+
+/* Node marks ------------------------------------------------------------- */
+
+.sim-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 0;
+  text-align: left;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+.sim-node-k {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent, var(--ink-3));
+}
+
+.sim-node-v {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.sim-node[data-hot="true"] .sim-node-v {
+  animation: sim-flash 1.1s var(--ease);
+}
+
+.sim-node[data-blocked="true"] .sim-node-k {
+  color: var(--ink-loss);
+}
+
+@keyframes sim-flash {
+  0% {
+    color: var(--accent);
+  }
+  100% {
+    color: var(--ink);
+  }
+}
+
+.sim-node-s {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.sim-node-chip {
+  margin-top: 1px;
+}
+
+.sim-chip,
+.sim-chip-actual {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.sim-chip-actual {
+  color: var(--ink-4);
+}
+
+.sim-chip[data-dir="up"] {
+  color: var(--ink-yield);
+}
+
+.sim-chip[data-dir="down"] {
+  color: var(--ink-loss);
+}
+
+.sim-op {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-3);
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.sim-op-cap {
+  transform: translate(0, -100%);
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.sim-cost-caption {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.sim-cost-caption span:first-child {
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 9px;
+}
+
+.sim-valves {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 4;
+}
+
+.sim-valves-row {
+  flex-direction: row;
+  gap: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   Yield vessel (HTML overlay, sits in the right column)
+   -------------------------------------------------------------------------- */
+
+.sim-yield {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 240px;
+  padding: 0;
+  text-align: center;
+  transform: translate(-50%, -54%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.sim-yield-kicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sim-yield-value {
+  font-family: var(--display);
+  font-size: clamp(40px, 4.6vw, 68px);
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+  color: var(--ink-yield);
+  margin: 4px 0 4px;
+  text-shadow: 0 0 22px var(--paper), 0 0 10px var(--paper), 0 1px 0 var(--paper);
+}
+
+.sim-yield[data-neg="true"] .sim-yield-value {
+  color: var(--ink-loss);
+}
+
+.sim-yield-delta {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  text-shadow: 0 0 12px var(--paper), 0 0 8px var(--paper);
+}
+
+.sim-yield-delta[data-dir="up"] {
+  color: var(--ink-yield);
+}
+
+.sim-yield-delta[data-dir="down"] {
+  color: var(--ink-loss);
+}
+
+.sim-yield-split {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 14px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.sim-yield-split b {
+  display: block;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-yield-split i {
+  width: 1px;
+  height: 28px;
+  background: var(--rule-strong);
+  align-self: center;
+}
+
+.sim-reads {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.sim-reads > div {
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.sim-reads dt {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sim-reads dd {
+  margin: 3px 0 2px;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.sim-reads dd[data-tone="good"] {
+  color: var(--ink-yield);
+}
+
+.sim-reads dd[data-tone="bad"] {
+  color: var(--ink-loss);
+}
+
+.sim-reads dd[data-tone="warn"] {
+  color: var(--ink-cash);
+}
+
+.sim-reads p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+/* --------------------------------------------------------------------------
+   Insight: the cause chain
+   -------------------------------------------------------------------------- */
+
+.sim-insight {
+  min-height: 76px;
+  padding: 10px 0 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.sim-insight-copy {
+  margin: 0;
+  max-width: 72ch;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.sim-insight-reads {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-insight-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.sim-insight-live {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) auto;
+  gap: 16px 24px;
+  align-items: start;
+}
+
+.sim-insight-cause {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sim-insight-cause span {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sim-insight-cause em {
+  font-style: italic;
+  font-family: var(--display);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+}
+
+.sim-insight-cause b {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sim-path-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 16px 0 14px;
+  border-left: 2px solid var(--dot, var(--rule));
+  animation: sim-step-in 0.4s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+
+@keyframes sim-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.sim-path-step[data-blocked="true"] {
+  border-left-style: dashed;
+  border-left-color: var(--ink-loss);
+}
+
+.sim-path-name {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sim-path-val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.sim-path-val b {
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.sim-path-val b[data-dir="up"] {
+  color: var(--ink-yield);
+}
+
+.sim-path-val b[data-dir="down"] {
+  color: var(--ink-loss);
+}
+
+.sim-path-val b[data-dir="flat"] {
+  color: var(--ink-3);
+}
+
+.sim-path-why {
+  font-size: 11px;
+  color: var(--ink-3);
+  max-width: 26ch;
+}
+
+.sim-verdict {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.3;
+  max-width: 22ch;
+  color: var(--ink);
+  justify-self: end;
+}
+
+.sim-verdict[data-dir="up"] {
+  color: var(--ink-yield);
+}
+
+.sim-verdict[data-dir="down"] {
+  color: var(--ink-loss);
+}
+
+/* --------------------------------------------------------------------------
+   Horizon
+   -------------------------------------------------------------------------- */
+
+.horizon {
+  border-top: 1px solid var(--rule);
+  padding-top: 8px;
+}
+
+.horizon-head {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+}
+
+.horizon-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--ink-3);
+  flex: 1;
+}
+
+.horizon-legend i {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-top: 2px solid var(--ink);
+}
+
+.horizon-legend i[data-swatch="cash"] {
+  border-top-color: var(--ink-cash);
+}
+
+.horizon-legend i[data-swatch="yield"] {
+  border-top-color: var(--ink-yield);
+}
+
+.horizon-legend i[data-swatch="ghost"] {
+  border-top: 1px dashed var(--ink-3);
+}
+
+.horizon-plot {
+  position: relative;
+  height: 132px;
+  margin-top: 4px;
+  touch-action: none;
+}
+
+.horizon-plot svg {
+  position: absolute;
+  inset: 0 0 22px 0;
+  width: 100%;
+  height: auto;
+}
+
+.horizon-zero {
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+
+.horizon-now {
+  stroke: var(--ink);
+  stroke-width: 1;
+  opacity: 0.4;
+}
+
+.horizon-rev {
+  fill: var(--ink-cash);
+  fill-opacity: 0.18;
+  mix-blend-mode: multiply;
+}
+
+.horizon-net {
+  fill: none;
+  stroke: var(--ink-yield);
+  stroke-width: 1.6;
+}
+
+.horizon-ghost {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.35;
+}
+
+.horizon-cols {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+}
+
+.horizon-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+
+.horizon-col[data-future="true"] {
+  cursor: ns-resize;
+}
+
+.horizon-col[data-focus="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 18% 22px;
+  border-left: 1px solid var(--ink);
+  border-right: 1px solid var(--ink);
+  opacity: 0.35;
+}
+
+.horizon-col[data-drag="true"] {
+  background: rgba(28, 25, 20, 0.04);
+}
+
+.horizon-lab {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  line-height: 22px;
+}
+
+.horizon-nowlab .horizon-lab {
+  color: var(--ink);
+}
+
+.horizon-mult {
+  position: absolute;
+  top: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-4);
+  opacity: 0;
+}
+
+.horizon-col[data-future="true"]:hover .horizon-mult,
+.horizon-col[data-focus="true"] .horizon-mult,
+.horizon-col[data-drag="true"] .horizon-mult {
+  opacity: 1;
+  color: var(--ink-2);
+}
+
+.horizon-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  padding: 6px 0 0;
+}
+
+.horizon-foot > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.horizon-foot b {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.horizon-foot b[data-neg="true"] {
+  color: var(--ink-loss);
+}
+
+.horizon-foot small {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+/* --------------------------------------------------------------------------
+   Valve
+   -------------------------------------------------------------------------- */
+
+.valve {
+  --accent: var(--ink);
+  position: relative;
+  min-width: 0;
+  padding: 2px 0 4px;
+  outline: none;
+  user-select: none;
+  touch-action: none;
+}
+
+.valve[data-active="true"] {
+  z-index: 6;
+}
+
+.valve-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.valve-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.valve[data-changed="true"] .valve-label {
+  color: var(--accent);
+}
+
+.valve-value {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  cursor: text;
+}
+
+.valve-value small {
+  margin-left: 3px;
+  font-size: 9px;
+  color: var(--ink-4);
+}
+
+.valve-input {
+  width: 64px;
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--ink);
+  color: var(--ink);
+  outline: none;
+  padding: 0;
+}
+
+.valve-track {
+  position: relative;
+  height: 16px;
+  cursor: ew-resize;
+}
+
+.valve-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 0;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.valve-fill {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  height: 0;
+  border-top: 1px solid var(--accent);
+}
+
+.valve-actual {
+  position: absolute;
+  top: 3px;
+  width: 0;
+  height: 10px;
+  border-left: 1px dashed var(--ink-3);
+  transform: translateX(-0.5px);
+}
+
+.valve-thumb {
+  position: absolute;
+  top: 8px;
+  width: 7px;
+  height: 7px;
+  background: var(--paper);
+  border: 1px solid var(--accent);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.valve[data-active="true"] .valve-thumb {
+  background: var(--accent);
+}
+
+.valve:focus-visible .valve-track {
+  outline: 1px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.valve-delta {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.valve-hint {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 10px);
+  z-index: 8;
+  width: max(160px, 100%);
+  padding: 6px 8px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 11px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.valve[data-compact="true"] .valve-label {
+  font-size: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Note / loading
+   -------------------------------------------------------------------------- */
+
+.sim-note {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-3);
+  max-width: 120ch;
+  margin: 6px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.sim-note b {
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.sim-loading {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 40vh;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--ink-2);
+}
+
+.sim-loading-ring {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--rule-strong);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: sim-spin 0.9s linear infinite;
+}
+
+@keyframes sim-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sim-head-focus {
+  position: absolute;
+  top: 8px;
+  left: 20px;
+  z-index: 5;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.sim-head-focus b {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.sim-head-focus button {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--ink-3);
+}
+
+.sim-head-focus button:hover {
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   Narrow / short
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .sim {
+    height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .sim-frame {
+    height: auto;
+    min-height: 100dvh;
+    grid-template-rows: auto auto auto auto auto;
+    padding-bottom: 24px;
+  }
+
+  .sim-stage {
+    min-height: 440px;
+  }
+
+  .sim-plate {
+    min-height: 440px;
+    overflow-x: auto;
+  }
+
+  .sim-svg {
+    height: 360px;
+  }
+
+  .sim-rail {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sim-yield {
+    width: 220px;
+  }
+
+  .sim-yield-value {
+    font-size: 56px;
+  }
+
+  .sim-reads {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+  }
+
+  .sim-reads > div {
+    flex: 1 1 180px;
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .sim-insight-live {
+    grid-template-columns: 1fr;
+  }
+
+  .sim-verdict {
+    justify-self: start;
+  }
+
+  .sim-chrome {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 0;
+    gap: 8px 14px;
+  }
+}
+
+@media (max-width: 720px) {
+  .sim-brand span {
+    display: none;
+  }
+
+  .sim-cal {
+    width: 100%;
+    order: 3;
+  }
+
+  .horizon-foot {
+    gap: 10px 18px;
+  }
+
+  .sim-note {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sim-path-step,
+  .sim-node[data-hot="true"] .sim-node-v,
+  .sim-loading-ring {
+    animation: none;
+  }
+}

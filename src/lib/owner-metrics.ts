@@ -28,6 +28,8 @@ export const SOURCE_BUCKETS = [
 export type SourceBucket = (typeof SOURCE_BUCKETS)[number];
 
 const AD_SOURCES = new Set<SourceBucket>(["Facebook", "Instagram", "Google"]);
+/** Lead sources that cost money to reach. */
+export const AD_SOURCE_BUCKETS: ReadonlySet<SourceBucket> = AD_SOURCES;
 
 const STREET_SUFFIXES: Record<string, string> = {
   street: "st",
