@@ -185,6 +185,10 @@ function jobRevenue(job: Job): number {
   return job.finalPrice ?? 0;
 }
 
+function isPriced(job: Job): boolean {
+  return jobRevenue(job) > 0;
+}
+
 function isActive(job: Job): boolean {
   return job.status !== "Cancelled";
 }
@@ -202,7 +206,7 @@ export function computePeriodProfit(jobs: Job[], expenses: Expense[], start: str
   const from = start <= end ? start : end;
   const to = start <= end ? end : start;
   const gross = jobs
-    .filter((job) => isActive(job) && isInRange(job, from, to))
+    .filter((job) => isActive(job) && isPriced(job) && isInRange(job, from, to))
     .reduce((sum, job) => sum + jobRevenue(job), 0);
   const expensesTotal = expenses
     .filter((expense) => {
@@ -603,7 +607,8 @@ function buildClippedMonthBuckets(jobs: Job[], start: string, end: string): Reve
 export function computeRangeInsights(jobs: Job[], start: string, end: string): RangeInsights {
   const from = start <= end ? start : end;
   const to = start <= end ? end : start;
-  const rangeJobs = jobs.filter((job) => isInRange(job, from, to));
+  const priced = jobs.filter(isPriced);
+  const rangeJobs = priced.filter((job) => isInRange(job, from, to));
   const activeJobs = rangeJobs.filter(isActive);
   const completedJobs = rangeJobs.filter((job) => job.status === "Completed");
   const pricedJobs = rangeJobs.filter((job) => jobRevenue(job) > 0);
@@ -613,7 +618,7 @@ export function computeRangeInsights(jobs: Job[], start: string, end: string): R
     span <= 6
       ? buildEveryDayBuckets(rangeJobs, from, to)
       : span <= 180
-        ? buildWorkWeekBuckets(jobs, from, to)
+        ? buildWorkWeekBuckets(priced, from, to)
         : buildClippedMonthBuckets(rangeJobs, from, to);
 
   return {
@@ -651,11 +656,12 @@ export function computeBusinessInsights(jobs: Job[], options?: InsightOptions): 
   const year = options?.year ?? now.getFullYear();
   const month = options?.month ?? now.getMonth() + 1;
   const weekAnchor = options?.weekStart ?? today;
+  const priced = jobs.filter(isPriced);
 
-  const todayJobs = jobs.filter((job) => getJobDateOnly(job.jobDate) === today);
-  const tomorrowJobs = jobs.filter((job) => getJobDateOnly(job.jobDate) === tomorrow);
+  const todayJobs = priced.filter((job) => getJobDateOnly(job.jobDate) === today);
+  const tomorrowJobs = priced.filter((job) => getJobDateOnly(job.jobDate) === tomorrow);
 
-  const upcomingJobs = jobs
+  const upcomingJobs = priced
     .filter(
       (job) =>
         getJobDateOnly(job.jobDate) > tomorrow &&
@@ -666,15 +672,15 @@ export function computeBusinessInsights(jobs: Job[], options?: InsightOptions): 
     .slice(0, 8);
 
   return {
-    availableYears: getAvailableYears(jobs),
+    availableYears: getAvailableYears(priced),
     todayJobs,
     tomorrowJobs,
     upcomingJobs,
-    needsFollowUpCount: jobs.filter((job) => job.status === "Needs Follow-Up").length,
-    unpaidJobsCount: jobs.filter((job) => isActive(job) && !job.paid && jobRevenue(job) > 0).length,
-    week: computeWeekInsights(jobs, weekAnchor),
-    month: computeMonthInsights(jobs, year, month),
-    year: computeYearInsights(jobs, year),
+    needsFollowUpCount: priced.filter((job) => job.status === "Needs Follow-Up").length,
+    unpaidJobsCount: priced.filter((job) => isActive(job) && !job.paid).length,
+    week: computeWeekInsights(priced, weekAnchor),
+    month: computeMonthInsights(priced, year, month),
+    year: computeYearInsights(priced, year),
   };
 }
 

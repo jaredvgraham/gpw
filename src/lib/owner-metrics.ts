@@ -232,6 +232,7 @@ export function computeOwnerSnapshot(
 ): OwnerSnapshot {
   const start = from <= to ? from : to;
   const end = from <= to ? to : from;
+  jobs = jobs.filter((job) => (job.finalPrice ?? 0) > 0);
   const attribution = attributeJobs(jobs, leads);
   const bookedLeadIds = new Set(
     [...attribution.values()].map((item) => item.leadId).filter((id): id is string => Boolean(id))

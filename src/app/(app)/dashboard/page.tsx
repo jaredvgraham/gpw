@@ -160,6 +160,7 @@ export default function DashboardPage() {
     const days = new Set<string>();
     for (const job of jobs) {
       if (job.status === "Cancelled") continue;
+      if ((job.finalPrice ?? 0) <= 0) continue;
       const date = getJobDateOnly(job.jobDate);
       if (date >= start && date <= end) days.add(date);
     }
