@@ -157,20 +157,46 @@ export default function DashboardPage() {
   const workDays = useMemo(() => {
     const start = profitRange.from <= profitRange.to ? profitRange.from : profitRange.to;
     const end = profitRange.from <= profitRange.to ? profitRange.to : profitRange.from;
-    const days = new Set<string>();
+    const byDate = new Map<string, { jobs: number; gross: number }>();
     for (const job of jobs) {
       if (job.status === "Cancelled") continue;
-      if ((job.finalPrice ?? 0) <= 0) continue;
+      const price = job.finalPrice ?? 0;
+      if (price <= 0) continue;
       const date = getJobDateOnly(job.jobDate);
-      if (date >= start && date <= end) days.add(date);
+      if (date < start || date > end) continue;
+      const day = byDate.get(date) ?? { jobs: 0, gross: 0 };
+      day.jobs += 1;
+      day.gross += price;
+      byDate.set(date, day);
     }
-    return days.size;
+
+    let priced = 0;
+    let gross = 0;
+    for (const day of byDate.values()) {
+      priced += day.jobs;
+      gross += day.gross;
+    }
+
+    return { count: byDate.size, jobs: priced, gross };
   }, [jobs, profitRange]);
+
+  const perWorkDay = (value: number) => {
+    const rounded = Math.round(value * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  };
+
   const dailyStats =
-    expensesReady && workDays > 0
+    workDays.count > 0
       ? [
-          { value: formatCurrency(profit.gross / workDays), label: "gross / work day" },
-          { value: formatCurrency(profit.net / workDays), label: "net / work day" },
+          { value: perWorkDay(workDays.jobs / workDays.count), label: "jobs / work day" },
+          {
+            value: formatCurrency(workDays.jobs > 0 ? workDays.gross / workDays.jobs : 0),
+            label: "ticket",
+          },
+          { value: formatCurrency(workDays.gross / workDays.count), label: "gross / work day" },
+          ...(expensesReady
+            ? [{ value: formatCurrency(profit.net / workDays.count), label: "net / work day" }]
+            : []),
         ]
       : [];
 
