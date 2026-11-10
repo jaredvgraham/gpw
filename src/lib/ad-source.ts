@@ -11,7 +11,7 @@ export function isAdSource(value: unknown): value is AdSource {
   return value === "google" || value === "meta";
 }
 
-/** Job mark wins. Instant Form counts as Meta. “Found us on Google” does not count as paid. */
+/** Job mark wins. Meta ad landing quotes (`source: meta_ad`) count as Meta. “Found us on Google” does not count as paid. */
 export function jobPaidAdSource(
   job: { adSource?: AdSource },
   lead?: { source?: string; howYouFoundUs?: string } | null

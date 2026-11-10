@@ -1,8 +1,7 @@
 import { addMonths, differenceInCalendarDays, endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import { isPaintAdExpense } from "@/lib/ad-source";
 import { getJobDateOnly } from "@/lib/dates";
-import { AD_SOURCE_BUCKETS, leadSourceBucket } from "@/lib/owner-metrics";
-import { bookingAddressKey } from "@/lib/owner-metrics";
+import { bookingAddressKey, isPaidAdLead } from "@/lib/owner-metrics";
 import { isPaintOnlyJob, isPaintOnlyLead, powerWashRevenue } from "@/lib/paint-jobs";
 import type { Expense, Job, Lead } from "@/types";
 
@@ -437,7 +436,7 @@ export function deriveBaseline(jobs: Job[], leads: Lead[], expenses: Expense[], 
   const periodLeads = leads.filter(
     (lead) => lead.source !== "phone" && !isPaintOnlyLead(lead) && inRange(getJobDateOnly(lead.createdAt)),
   );
-  const adLeadCount = periodLeads.filter((lead) => AD_SOURCE_BUCKETS.has(leadSourceBucket(lead))).length;
+  const adLeadCount = periodLeads.filter((lead) => isPaidAdLead(lead)).length;
   const organicCount = periodLeads.length - adLeadCount;
 
   const periodExpenses = expenses.filter(
