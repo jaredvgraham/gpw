@@ -5,7 +5,8 @@ import { format } from "date-fns";
 import type { Customer, Job } from "@/types";
 import Modal from "@/components/ui/Modal";
 import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
-import { formatTimeRange, STATUS_SURFACE } from "@/components/calendar/desktop/model";
+import { formatTimeRange } from "@/components/calendar/desktop/model";
+import { jobCueColor, jobCueLabel } from "@/lib/constants";
 import { getJobDateOnly } from "@/lib/dates";
 import { getJobHouseholdDisplay } from "@/lib/household-display";
 import CopyAddressButton from "@/components/ui/CopyAddressButton";
@@ -45,7 +46,7 @@ export default function JobDetailsModal({
 
   const customer = typeof job.customer === "object" ? (job.customer as Customer) : null;
   const display = getJobHouseholdDisplay(job, jobs);
-  const surface = STATUS_SURFACE[job.status] ?? STATUS_SURFACE.Scheduled;
+  const accent = jobCueColor({ status: job.status, paid });
   const [year, month, day] = getJobDateOnly(job.jobDate).split("-").map(Number);
   const when = format(new Date(year, month - 1, day), "EEEE, MMMM d");
   const services = job.services
@@ -123,15 +124,15 @@ export default function JobDetailsModal({
 
   return (
     <Modal open={open} onClose={onClose} title={display.primaryName} size="lg" bare>
-      <div className="h-1" style={{ backgroundColor: surface.accent }} />
+      <div className="h-1" style={{ backgroundColor: accent }} />
       <div className="px-7 pb-6 pt-8">
         <div className="pr-10">
           <h2 className="text-[2rem] font-semibold leading-none tracking-tight text-gray-950">
             {display.primaryName}
           </h2>
-          <p className="mt-3 flex items-center gap-2 text-sm font-medium" style={{ color: surface.accent }}>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: surface.accent }} />
-            {job.status}
+          <p className="mt-3 flex items-center gap-2 text-sm font-medium" style={{ color: accent }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+            {job.status === "Completed" ? `${job.status} · ${jobCueLabel({ status: job.status, paid })}` : job.status}
           </p>
           {display.memberCount > 1 ? (
             <div className="mt-3">
@@ -199,7 +200,11 @@ export default function JobDetailsModal({
             className="inline-flex items-center gap-3 text-sm font-medium text-gray-700 disabled:opacity-50"
           >
             {paid ? "Paid" : "Unpaid"}
-            <span className={`relative h-7 w-12 rounded-full transition ${paid ? "bg-green-500" : "bg-gray-200"}`}>
+            <span
+              className={`relative h-7 w-12 rounded-full transition ${
+                paid ? "bg-green-500" : job.status === "Completed" ? "bg-yellow-500" : "bg-gray-200"
+              }`}
+            >
               <span
                 className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition ${
                   paid ? "left-5" : "left-0.5"

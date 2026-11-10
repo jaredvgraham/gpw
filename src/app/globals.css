@@ -760,6 +760,10 @@ body {
   background: white;
 }
 
+.duo-panes.duo-panes-bar {
+  flex: none;
+}
+
 @media (horizontal-viewport-segments: 2) {
   .duo-panes {
     display: grid;

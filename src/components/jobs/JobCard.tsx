@@ -36,7 +36,7 @@ export default function JobCard({ job }: { job: Job }) {
             </p>
           )}
         </div>
-        <StatusBadge status={job.status} />
+        <StatusBadge status={job.status} paid={job.paid} />
       </div>
 
       <div className="mt-3 flex flex-wrap gap-3 text-sm text-gray-600">
@@ -68,7 +68,11 @@ export default function JobCard({ job }: { job: Job }) {
         {job.finalPrice !== undefined && (
           <span className="font-semibold text-brand-black">
             {formatCurrency(job.finalPrice)}
-            {job.paid && <span className="ml-1 text-green-600 text-xs">(Paid)</span>}
+            {job.status === "Completed" ? (
+              <span className={`ml-1 text-xs ${job.paid ? "text-green-600" : "text-yellow-700"}`}>
+                {job.paid ? "(Paid)" : "(Unpaid)"}
+              </span>
+            ) : null}
           </span>
         )}
       </div>

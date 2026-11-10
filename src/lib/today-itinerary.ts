@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import type { Job } from "@/types";
+import { STATUS_COLORS, UNPAID_COLOR } from "@/lib/constants";
 import { getJobDateOnly } from "@/lib/dates";
 import { getDayTotalMinutes, formatDurationShort, getJobDurationMinutes } from "@/lib/calendar-mobile";
 import { timeToMinutes } from "@/lib/job-scheduling";
@@ -35,13 +36,15 @@ export function getItineraryStatus(job: Job, dateStr?: string) {
 
   switch (job.status) {
     case "Completed":
-      return { label: "COMPLETED", color: "#16a34a", highlight: false };
+      return job.paid
+        ? { label: "PAID", color: STATUS_COLORS.Completed, highlight: false }
+        : { label: "UNPAID", color: UNPAID_COLOR, highlight: false };
     case "Cancelled":
       return { label: "CANCELLED", color: "#6b7280", highlight: false };
     case "Needs Follow-Up":
-      return { label: "FOLLOW UP", color: "#d97706", highlight: false };
+      return { label: "FOLLOW UP", color: STATUS_COLORS["Needs Follow-Up"], highlight: false };
     default:
-      return { label: "SCHEDULED", color: "#2563eb", highlight: false };
+      return { label: "SCHEDULED", color: STATUS_COLORS.Scheduled, highlight: false };
   }
 }
 

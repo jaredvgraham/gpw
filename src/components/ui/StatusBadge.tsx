@@ -1,11 +1,13 @@
-import { STATUS_COLORS, type JobStatus } from "@/lib/constants";
+import { jobCueColor, jobCueLabel, type JobStatus } from "@/lib/constants";
 import { cn } from "@/lib/cn";
 
 export default function StatusBadge({
   status,
+  paid,
   className,
 }: {
   status: JobStatus;
+  paid?: boolean;
   className?: string;
 }) {
   return (
@@ -14,9 +16,9 @@ export default function StatusBadge({
         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium text-white",
         className
       )}
-      style={{ backgroundColor: STATUS_COLORS[status] }}
+      style={{ backgroundColor: jobCueColor({ status, paid }) }}
     >
-      {status}
+      {jobCueLabel({ status, paid })}
     </span>
   );
 }

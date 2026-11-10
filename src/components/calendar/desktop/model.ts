@@ -8,7 +8,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import type { Job } from "@/types";
-import type { JobStatus } from "@/lib/constants";
+import { jobCueLabel, type JobStatus } from "@/lib/constants";
 import { getJobDateOnly } from "@/lib/dates";
 import { formatTime, getJobAddress } from "@/lib/utils";
 
@@ -133,18 +133,11 @@ export function jobStatusMark(job: Job): { label: string; tone: "good" | "alert"
   return null;
 }
 
-export function yearDaySignal(jobs: Job[]): JobStatus | null {
-  if (jobs.length === 0) return null;
-  if (jobs.some((job) => job.status === "Needs Follow-Up")) return "Needs Follow-Up";
-  if (jobs.some((job) => job.status === "Scheduled")) return "Scheduled";
-  if (jobs.some((job) => job.status === "Completed")) return "Completed";
-  return "Cancelled";
-}
 
 export function jobSummary(job: Job, name: string) {
   const when = formatTimeRange(job.startTime, job.endTime);
   const place = getJobAddress(job);
   const services = jobServiceLabel(job);
   const price = job.finalPrice !== undefined ? `$${job.finalPrice}` : "";
-  return [name, when, place, services, price, job.status].filter(Boolean).join(", ");
+  return [name, when, place, services, price, jobCueLabel(job)].filter(Boolean).join(", ");
 }

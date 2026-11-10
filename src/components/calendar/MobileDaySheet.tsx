@@ -6,7 +6,7 @@ import type { Job } from "@/types";
 import { formatTime, getJobAddress } from "@/lib/utils";
 import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import CopyAddressButton from "@/components/ui/CopyAddressButton";
-import { STATUS_COLORS } from "@/lib/constants";
+import { jobCueColor, jobCueLabel } from "@/lib/constants";
 import { getNewJobTimePrefill } from "@/lib/calendar-mobile";
 import { X, Plus, MapPin, Clock } from "lucide-react";
 
@@ -74,9 +74,9 @@ export default function MobileDaySheet({
                     </div>
                     <span
                       className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
-                      style={{ backgroundColor: STATUS_COLORS[job.status] }}
+                      style={{ backgroundColor: jobCueColor(job) }}
                     >
-                      {job.status}
+                      {jobCueLabel(job)}
                     </span>
                   </div>
                   {address && (

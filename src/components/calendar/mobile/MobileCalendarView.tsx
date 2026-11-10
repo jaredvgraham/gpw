@@ -24,7 +24,7 @@ import {
   Plus,
 } from "lucide-react";
 import type { Job } from "@/types";
-import { STATUS_COLORS } from "@/lib/constants";
+import { dayCueColor, jobCueColor, jobCueLabel } from "@/lib/constants";
 import {
   formatCompactCurrency,
   formatDurationShort,
@@ -51,6 +51,9 @@ import ServicePill from "@/components/calendar/ServicePill";
 import JobCustomerHeader from "@/components/customers/JobCustomerHeader";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { usePathname } from "next/navigation";
+import CalendarLayoutToggle, {
+  type CalendarLayoutChoice,
+} from "@/components/calendar/CalendarLayoutToggle";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -78,9 +81,17 @@ interface MobileCalendarViewProps {
   jobs: Job[];
   loading: boolean;
   wide?: boolean;
+  layout?: CalendarLayoutChoice;
+  onLayoutChange?: (layout: CalendarLayoutChoice) => void;
 }
 
-export default function MobileCalendarView({ jobs, loading, wide = false }: MobileCalendarViewProps) {
+export default function MobileCalendarView({
+  jobs,
+  loading,
+  wide = false,
+  layout = "duo",
+  onLayoutChange,
+}: MobileCalendarViewProps) {
   const pathname = usePathname();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -247,6 +258,11 @@ export default function MobileCalendarView({ jobs, loading, wide = false }: Mobi
             <ChevronRight className="h-5 w-5 text-brand-black" strokeWidth={2.5} />
           </button>
         </div>
+        {onLayoutChange ? (
+          <div className="mt-2.5 flex justify-center">
+            <CalendarLayoutToggle value={layout} onChange={onLayoutChange} size="touch" />
+          </div>
+        ) : null}
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col bg-white">
@@ -294,7 +310,7 @@ export default function MobileCalendarView({ jobs, loading, wide = false }: Mobi
             const selected = isSameDay(day, selectedDate);
             const today = isToday(day);
             const revenue = getDayRevenue(dayJobs);
-            const primaryStatus = dayJobs[0]?.status;
+            const cue = dayCueColor(dayJobs);
 
             return (
               <button
@@ -328,9 +344,7 @@ export default function MobileCalendarView({ jobs, loading, wide = false }: Mobi
                       <span
                         className="h-1.5 w-1.5 rounded-full shrink-0"
                         style={{
-                          backgroundColor: primaryStatus
-                            ? STATUS_COLORS[primaryStatus]
-                            : "#9ca3af",
+                          backgroundColor: cue ?? "#9ca3af",
                         }}
                       />
                       {dayJobs.length} job{dayJobs.length !== 1 ? "s" : ""}
@@ -347,7 +361,7 @@ export default function MobileCalendarView({ jobs, loading, wide = false }: Mobi
                     >
                       <span
                         className="h-1.5 w-1.5 rounded-full shrink-0"
-                        style={{ backgroundColor: STATUS_COLORS[job.status] }}
+                        style={{ backgroundColor: jobCueColor(job) }}
                       />
                       <span
                         className={`truncate text-[7px] font-semibold leading-tight ${
@@ -504,13 +518,13 @@ export default function MobileCalendarView({ jobs, loading, wide = false }: Mobi
                     <div className="shrink-0 flex flex-col items-end justify-between gap-1">
                       <span
                         className="flex items-center gap-1 text-[10px] font-medium"
-                        style={{ color: STATUS_COLORS[job.status] }}
+                        style={{ color: jobCueColor(job) }}
                       >
                         <span
                           className="h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: STATUS_COLORS[job.status] }}
+                          style={{ backgroundColor: jobCueColor(job) }}
                         />
-                        {job.status}
+                        {jobCueLabel(job)}
                       </span>
                       {job.finalPrice !== undefined && (
                         <span className="text-xs font-bold text-brand-black">

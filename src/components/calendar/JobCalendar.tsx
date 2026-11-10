@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import {
   addDays,
   addMonths,
@@ -27,6 +28,8 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useJobModals } from "@/contexts/JobModalContext";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
+import CalendarLayoutToggle, { useCalendarLayoutChoice } from "@/components/calendar/CalendarLayoutToggle";
+import MobileMenu from "@/components/layout/MobileMenu";
 import {
   bookedTotal,
   dueTotal,
@@ -59,7 +62,8 @@ function headingFor(view: DesktopView, cursor: Date) {
 
 function buildStats(jobs: Job[]): CalendarStat[] {
   if (jobs.length === 0) return [];
-  const done = jobs.filter((job) => job.status === "Completed").length;
+  const paid = jobs.filter((job) => job.status === "Completed" && job.paid).length;
+  const unpaid = jobs.filter((job) => job.status === "Completed" && !job.paid).length;
   const follow = jobs.filter((job) => job.status === "Needs Follow-Up").length;
   const cancelled = jobs.filter((job) => job.status === "Cancelled").length;
   const due = dueTotal(jobs);
@@ -67,25 +71,30 @@ function buildStats(jobs: Job[]): CalendarStat[] {
     { value: String(jobs.length), label: jobs.length === 1 ? "job" : "jobs" },
     { value: formatCurrency(bookedTotal(jobs)), label: "booked" },
   ];
-  if (done > 0) stats.push({ value: String(done), label: "done", tone: "good" });
+  if (paid > 0) stats.push({ value: String(paid), label: "paid", tone: "good" });
+  if (unpaid > 0) stats.push({ value: String(unpaid), label: "unpaid", tone: "due" });
   if (follow > 0) {
     stats.push({ value: String(follow), label: follow === 1 ? "follow up" : "follow ups", tone: "alert" });
   }
-  if (due > 0) stats.push({ value: formatCurrency(due), label: "due", tone: "alert" });
+  if (due > 0) stats.push({ value: formatCurrency(due), label: "due", tone: "due" });
   if (cancelled > 0) stats.push({ value: String(cancelled), label: "cancelled", tone: "muted" });
   return stats;
 }
 
 export default function JobCalendar() {
   const { mode, ready } = useLayoutMode();
+  const { choice: calendarLayout, setChoice: setCalendarLayout, ready: layoutChoiceReady } =
+    useCalendarLayoutChoice();
   const { openNewJob } = useJobModals();
   const { jobs, jobsLoading: loading } = useAppData();
+  const pathname = usePathname();
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<DesktopView>("dayGridMonth");
   const [cursor, setCursor] = useState(() => new Date());
   const [daySheetDate, setDaySheetDate] = useState<Date | null>(null);
   const [daySheetOpen, setDaySheetOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const openJob = useCallback((job: Job) => {
     setSelectedJob(job);
@@ -157,7 +166,7 @@ export default function JobCalendar() {
     setCursor(new Date(year, month - 1, day));
   }
 
-  if (!ready) {
+  if (!ready || (mode === "wide" && !layoutChoiceReady)) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center">
         <LoadingSpinner />
@@ -165,10 +174,19 @@ export default function JobCalendar() {
     );
   }
 
-  if (mode !== "desktop") {
+  const showLayoutToggle = mode === "wide";
+  const useDesktopBoards = mode === "desktop" || (mode === "wide" && calendarLayout === "desktop");
+
+  if (!useDesktopBoards) {
     return (
       <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
-        <MobileCalendarView jobs={jobs} loading={loading} wide={mode === "wide"} />
+        <MobileCalendarView
+          jobs={jobs}
+          loading={loading}
+          wide={mode === "wide"}
+          layout={calendarLayout}
+          onLayoutChange={showLayoutToggle ? setCalendarLayout : undefined}
+        />
       </div>
     );
   }
@@ -190,8 +208,13 @@ export default function JobCalendar() {
   const nextLabel =
     currentView === "dayGridMonth" ? "Next month" : currentView === "multiMonthYear" ? "Next year" : currentView === "timeGridWeek" ? "Next week" : "Next day";
 
+  const compact = showLayoutToggle;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {compact ? (
+        <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} currentPath={pathname} />
+      ) : null}
       <DesktopCalendarChrome
         primary={heading.primary}
         secondary={heading.secondary}
@@ -204,6 +227,14 @@ export default function JobCalendar() {
         todayDisabled={todayDisabled}
         prevLabel={prevLabel}
         nextLabel={nextLabel}
+        duo={compact}
+        onMenuOpen={compact ? () => setMenuOpen(true) : undefined}
+        onAddJob={compact ? () => openNewJob() : undefined}
+        layoutToggle={
+          showLayoutToggle ? (
+            <CalendarLayoutToggle value={calendarLayout} onChange={setCalendarLayout} size="touch" />
+          ) : undefined
+        }
         jump={
           currentView === "listDay"
             ? { kind: "date", value: toIsoDate(cursor), label: "Jump to a day", onChange: jumpToDate }
@@ -213,7 +244,7 @@ export default function JobCalendar() {
         }
       />
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         {loading && jobs.length === 0 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
             <LoadingSpinner />
@@ -227,6 +258,7 @@ export default function JobCalendar() {
             onOpenDay={openDayView}
             onOpenJob={openJob}
             onAddJob={openNewJobModal}
+            duo={compact}
           />
         ) : null}
 
@@ -239,11 +271,18 @@ export default function JobCalendar() {
               setCursor(date);
               setCurrentView("dayGridMonth");
             }}
+            duo={compact}
           />
         ) : null}
 
         {currentView === "listDay" ? (
-          <DesktopDayBoard cursor={cursor} jobs={jobs} onOpenJob={openJob} onAddJob={openNewJobModal} />
+          <DesktopDayBoard
+            cursor={cursor}
+            jobs={jobs}
+            onOpenJob={openJob}
+            onAddJob={openNewJobModal}
+            duo={compact}
+          />
         ) : null}
 
         {currentView === "timeGridWeek" ? (
@@ -256,6 +295,7 @@ export default function JobCalendar() {
             }}
             onOpenJob={openJob}
             onAddJob={openNewJobModal}
+            duo={compact}
           />
         ) : null}
       </div>

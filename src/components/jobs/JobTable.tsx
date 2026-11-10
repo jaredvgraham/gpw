@@ -71,13 +71,21 @@ export default function JobTable({ jobs }: { jobs: Job[] }) {
                   <p className="truncate">{serviceLabel(job) || "—"}</p>
                 </td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={job.status} />
+                  <StatusBadge status={job.status} paid={job.paid} />
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right">
                   <p className="font-semibold tabular-nums text-brand-black">
                     {formatCurrency(job.finalPrice)}
                   </p>
-                  <p className={`text-xs font-medium ${job.paid ? "text-green-600" : "text-gray-400"}`}>
+                  <p
+                    className={`text-xs font-medium ${
+                      job.paid
+                        ? "text-green-600"
+                        : job.status === "Completed"
+                          ? "text-yellow-700"
+                          : "text-gray-400"
+                    }`}
+                  >
                     {job.paid ? "Paid" : "Unpaid"}
                   </p>
                 </td>
