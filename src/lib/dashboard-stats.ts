@@ -17,6 +17,8 @@ import { getCustomerName } from "@/lib/utils";
 import { JOB_STATUSES, type JobStatus } from "@/lib/constants";
 import { buildTopCustomersByHousehold, buildHouseholdIndex } from "@/lib/household-display";
 import type { CustomerInsight } from "@/lib/household-display";
+import { isPaintAdExpense } from "@/lib/ad-source";
+import { isPaintOnlyJob } from "@/lib/paint-jobs";
 import type { Customer, Expense, Job } from "@/types";
 
 function getJobCustomer(job: Job): Customer | null {
@@ -206,10 +208,11 @@ export function computePeriodProfit(jobs: Job[], expenses: Expense[], start: str
   const from = start <= end ? start : end;
   const to = start <= end ? end : start;
   const gross = jobs
-    .filter((job) => isActive(job) && isPriced(job) && isInRange(job, from, to))
+    .filter((job) => isActive(job) && isPriced(job) && !isPaintOnlyJob(job) && isInRange(job, from, to))
     .reduce((sum, job) => sum + jobRevenue(job), 0);
   const expensesTotal = expenses
     .filter((expense) => {
+      if (isPaintAdExpense(expense)) return false;
       const date = getJobDateOnly(expense.date);
       return date >= from && date <= to;
     })
@@ -607,7 +610,7 @@ function buildClippedMonthBuckets(jobs: Job[], start: string, end: string): Reve
 export function computeRangeInsights(jobs: Job[], start: string, end: string): RangeInsights {
   const from = start <= end ? start : end;
   const to = start <= end ? end : start;
-  const priced = jobs.filter(isPriced);
+  const priced = jobs.filter((job) => isPriced(job) && !isPaintOnlyJob(job));
   const rangeJobs = priced.filter((job) => isInRange(job, from, to));
   const activeJobs = rangeJobs.filter(isActive);
   const completedJobs = rangeJobs.filter((job) => job.status === "Completed");
@@ -656,7 +659,7 @@ export function computeBusinessInsights(jobs: Job[], options?: InsightOptions): 
   const year = options?.year ?? now.getFullYear();
   const month = options?.month ?? now.getMonth() + 1;
   const weekAnchor = options?.weekStart ?? today;
-  const priced = jobs.filter(isPriced);
+  const priced = jobs.filter((job) => isPriced(job) && !isPaintOnlyJob(job));
 
   const todayJobs = priced.filter((job) => getJobDateOnly(job.jobDate) === today);
   const tomorrowJobs = priced.filter((job) => getJobDateOnly(job.jobDate) === tomorrow);

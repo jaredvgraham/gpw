@@ -15,11 +15,12 @@ import { jobSchema } from "@/lib/validations";
 import type { z } from "zod";
 import { JOB_STATUSES, type JobStatus } from "@/lib/constants";
 import type { Job, Lead, Service, Customer } from "@/types";
-import { getJobDuration } from "@/lib/utils";
+import { formatCurrency, getJobDuration } from "@/lib/utils";
 import { sortServicesForDisplay } from "@/lib/services";
 import { useAppData } from "@/contexts/AppDataContext";
 import type { AdSource } from "@/lib/ad-source";
 import AdSourcePicker from "@/components/jobs/AdSourcePicker";
+import { isPaintService, paintFeeAmount } from "@/lib/paint-jobs";
 import { Calendar, User, MapPin, Wrench, DollarSign, FileText } from "lucide-react";
 
 interface JobFormProps {
@@ -55,6 +56,10 @@ function leadMatchesField(lead: Lead, field: LeadField, query: string): boolean 
 function matchLeadService(label: string, catalog: Service[]): Service | null {
   const text = label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const rules: [RegExp, string][] = [
+    [/\bbacksplash\b/, "Cabinet Painting + Tile Backsplash Package"],
+    [/\bcabinet\b/, "Kitchen Cabinet Painting & Refinishing"],
+    [/\binterior paint/, "Interior Painting"],
+    [/\bexterior paint/, "Exterior Painting"],
     [/\bhouse\b/, "House wash"],
     [/\bwindow/, "Window cleaning"],
     [/\broof\b/, "Roof wash"],
@@ -71,7 +76,13 @@ function matchLeadService(label: string, catalog: Service[]): Service | null {
     if (!pattern.test(text)) continue;
     return catalog.find((service) => service.name === name) ?? null;
   }
-  return catalog.find((service) => service.name.toLowerCase() === text && service.name !== "Other") ?? null;
+  return (
+    catalog.find(
+      (service) =>
+        service.name !== "Other" &&
+        service.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() === text
+    ) ?? null
+  );
 }
 
 function servicesFromLead(lead: Lead, catalog: Service[]) {
@@ -223,7 +234,12 @@ export default function JobForm({
   const startTime = watch("startTime");
   const endTime = watch("endTime");
   const selectedServices = watch("services");
+  const finalPrice = watch("finalPrice");
   const isPaid = watch("paid");
+  const paintSelected = (selectedServices ?? []).some((service) =>
+    isPaintService({ name: service.name, customServiceName: service.customServiceName })
+  );
+  const jaredPaintCut = paintSelected ? paintFeeAmount(Number(finalPrice) || 0) : 0;
   const adSource = watch("adSource");
   const customerName = watch("customer.name") ?? "";
   const customerPhone = watch("customer.phone") ?? "";
@@ -624,6 +640,11 @@ export default function JobForm({
                   {...register("finalPrice")}
                   error={errors.finalPrice?.message}
                 />
+                {paintSelected ? (
+                  <p className="mt-2 text-sm text-gray-600">
+                    Enter the full job price. Jared gets 5% ({formatCurrency(jaredPaintCut)}).
+                  </p>
+                ) : null}
               </div>
               {isEditing && (
                 <label

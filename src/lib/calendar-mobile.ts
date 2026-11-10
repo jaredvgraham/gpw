@@ -1,5 +1,6 @@
 import type { Job, JobService } from "@/types";
 import { getJobDateOnly } from "@/lib/dates";
+import { powerWashRevenue } from "@/lib/paint-jobs";
 import { snapToTimeSlot } from "@/lib/time";
 import { getCustomerName } from "@/lib/utils";
 import { getJobHouseholdTitle } from "@/lib/household-display";
@@ -30,6 +31,10 @@ export const SERVICE_PILL_STYLES: Record<string, { bg: string; text: string }> =
     "Fence cleaning": { bg: "#fef3c7", text: "#b45309" },
     "Stone walls": { bg: "#e7e5e4", text: "#57534e" },
     "Gutter cleaning": { bg: "#cffafe", text: "#0e7490" },
+    "Kitchen Cabinet Painting & Refinishing": { bg: "#fae8ff", text: "#a21caf" },
+    "Cabinet Painting + Tile Backsplash Package": { bg: "#fce7f3", text: "#be185d" },
+    "Interior Painting": { bg: "#ede9fe", text: "#6d28d9" },
+    "Exterior Painting": { bg: "#e0e7ff", text: "#3730a3" },
     Other: { bg: "#f3f4f6", text: "#4b5563" },
   };
 
@@ -47,6 +52,10 @@ const SERVICE_PILL_SHORT_LABELS: Record<string, string> = {
   "Fence cleaning": "Fence",
   "Stone walls": "Stone Walls",
   "Gutter cleaning": "Gutters",
+  "Kitchen Cabinet Painting & Refinishing": "Cabinets",
+  "Cabinet Painting + Tile Backsplash Package": "Cabinets + Tile",
+  "Interior Painting": "Interior Paint",
+  "Exterior Painting": "Exterior Paint",
 };
 
 function normalizeServiceName(serviceName: string) {
@@ -126,7 +135,7 @@ export function getNewJobTimePrefill(jobs: Job[], dateStr: string) {
 }
 
 export function getDayRevenue(jobs: Job[]) {
-  return jobs.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
+  return jobs.reduce((sum, job) => sum + powerWashRevenue(job), 0);
 }
 
 export function getJobDurationMinutes(startTime: string, endTime: string) {

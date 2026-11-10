@@ -10,6 +10,7 @@ import {
 import type { Job } from "@/types";
 import { jobCueLabel, type JobStatus } from "@/lib/constants";
 import { getJobDateOnly } from "@/lib/dates";
+import { powerWashRevenue } from "@/lib/paint-jobs";
 import { formatTime, getJobAddress } from "@/lib/utils";
 
 export type DesktopView = "listDay" | "timeGridWeek" | "dayGridMonth" | "multiMonthYear";
@@ -102,14 +103,14 @@ export function jobPlaceLine(job: Job) {
 export function bookedTotal(jobs: Job[]) {
   return jobs.reduce((sum, job) => {
     if (job.status === "Cancelled") return sum;
-    return sum + (job.finalPrice ?? 0);
+    return sum + powerWashRevenue(job);
   }, 0);
 }
 
 export function dueTotal(jobs: Job[]) {
   return jobs.reduce((sum, job) => {
     if (job.status !== "Completed" || job.paid) return sum;
-    return sum + (job.finalPrice ?? 0);
+    return sum + powerWashRevenue(job);
   }, 0);
 }
 

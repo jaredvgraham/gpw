@@ -7,7 +7,14 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAppData } from "@/contexts/AppDataContext";
-import { adSpendPlatform } from "@/lib/ad-source";
+import {
+  ADS_NOTE_OPTIONS,
+  adsExpenseNote,
+  adsNoteKind,
+  isPaintAdExpense,
+  type AdsNoteKind,
+} from "@/lib/ad-source";
+import { isPaintOnlyJob, jobHasPaintService, jobPaintFee } from "@/lib/paint-jobs";
 import {
   EXPENSE_COLORS,
   EXPENSE_PAYERS,
@@ -44,6 +51,7 @@ export default function SplitPage() {
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(initialRange.to);
   const [note, setNote] = useState("");
+  const [adsSource, setAdsSource] = useState<AdsNoteKind>("meta");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -86,7 +94,6 @@ export default function SplitPage() {
     () => (rangeInvalid ? null : computeOnTarget(jobs, expenses, { from, to })),
     [jobs, expenses, from, to, rangeInvalid],
   );
-
   function selectPreset(next: SplitPreset) {
     setPreset(next);
     if (next === "custom") return;
@@ -106,16 +113,12 @@ export default function SplitPage() {
       setFormError("Enter an amount.");
       return null;
     }
-    if (type === "Ads" && !adSpendPlatform(note)) {
-      setFormError("Write Meta or Google in the note.");
-      return null;
-    }
     return {
       type,
       amount: parsedAmount,
       paidBy,
       date: expenseDate,
-      note: note.trim() || undefined,
+      note: type === "Ads" ? adsExpenseNote(adsSource) : note.trim() || undefined,
     };
   }
 
@@ -123,6 +126,7 @@ export default function SplitPage() {
     setEditingId(null);
     setAmount("");
     setNote("");
+    setAdsSource("meta");
     setFormError("");
   }
 
@@ -133,6 +137,7 @@ export default function SplitPage() {
     setAmount(String(expense.amount));
     setExpenseDate(getJobDateOnly(expense.date));
     setNote(expense.note ?? "");
+    setAdsSource(adsNoteKind(expense.note) ?? "meta");
     setFormError("");
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -271,12 +276,15 @@ export default function SplitPage() {
               </p>
             </div>
 
-            {onTarget && (
+            {onTarget ? (
               <OnTarget
                 summary={onTarget}
-                remainingCount={onTarget.jobs.filter((job) => job.status !== "Completed").length}
+                remainingCount={
+                  onTarget.jobs.filter((job) => job.status !== "Completed" && !isPaintOnlyJob(job))
+                    .length
+                }
               />
-            )}
+            ) : null}
 
             <SettlementMath figures={settlement} expenses={summary.expenses} />
           </section>
@@ -349,17 +357,28 @@ export default function SplitPage() {
                 />
               </div>
               {type === "Ads" ? (
-                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  Write Meta or Google in the note so we know which ads this was.
-                </p>
-              ) : null}
-              <Input
-                label="Note"
-                required={type === "Ads"}
-                placeholder={type === "Ads" ? "Meta or Google" : "Optional"}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-gray-700">Source</span>
+                  <select
+                    value={adsSource}
+                    onChange={(e) => setAdsSource(e.target.value as AdsNoteKind)}
+                    className="w-full rounded-lg border border-brand-border bg-white px-3 py-2.5 text-base text-gray-900"
+                  >
+                    {ADS_NOTE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <Input
+                  label="Note"
+                  placeholder="Optional"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              )}
               {formError && <p className="text-sm text-brand-red">{formError}</p>}
               <div className="flex gap-2">
                 {editingId ? (
@@ -407,7 +426,9 @@ export default function SplitPage() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-brand-black">{expense.type}</p>
+                        <p className="font-semibold text-brand-black">
+                          {isPaintAdExpense(expense) ? "Paint ads" : expense.type}
+                        </p>
                         <span className="rounded-full bg-brand-gray px-2 py-0.5 text-[11px] font-semibold text-gray-600">
                           {expense.paidBy ?? "Unassigned"}
                         </span>
@@ -417,7 +438,9 @@ export default function SplitPage() {
                         <p className="mt-0.5 text-sm text-gray-600">{expense.note}</p>
                       )}
                       <p className="mt-1 text-sm text-gray-500">
-                        Each owner {formatCurrency(expense.amount / 2)}
+                        {isPaintAdExpense(expense)
+                          ? `Reimburse ${expense.paidBy ?? "whoever paid"} in full`
+                          : `Each owner ${formatCurrency(expense.amount / 2)}`}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -466,9 +489,16 @@ export default function SplitPage() {
                       </p>
                       <p className="text-xs text-gray-500">{formatDate(job.jobDate)}</p>
                     </div>
-                    <p className="shrink-0 font-semibold tabular-nums text-brand-black">
-                      {formatCurrency(job.finalPrice)}
-                    </p>
+                    <div className="shrink-0 text-right">
+                      <p className="font-semibold tabular-nums text-brand-black">
+                        {formatCurrency(job.finalPrice)}
+                      </p>
+                      {jobHasPaintService(job) ? (
+                        <p className="text-xs text-gray-500">
+                          Jared 5% {formatCurrency(jobPaintFee(job))}
+                        </p>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -494,17 +524,16 @@ function OnTarget({
     <div className="border-t border-blue-100 bg-blue-50/80 px-4 py-4 xl:flex xl:items-center xl:justify-between xl:gap-8 xl:px-6">
       <div className="min-w-0">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-blue">
-          On target
+          Power washing on target
         </p>
         <p className="mt-1 text-sm leading-relaxed text-gray-600">
-          If every job in this range finishes and no more expenses are added.
+          If every power washing job in this range finishes and no more expenses are added.
         </p>
         <p className="mt-1 text-xs leading-relaxed text-gray-500">
           {remainingCount === 0
-            ? "Every job in this range is already finished."
+            ? "Every power washing job in this range is already finished."
             : `${remainingCount} ${remainingCount === 1 ? "job" : "jobs"} still to finish.`}{" "}
-          On-target job total {formatCurrency(summary.gross)}. Each half{" "}
-          {formatCurrency(summary.ownerNet)}.
+          Job total {formatCurrency(summary.gross)}. Each half {formatCurrency(summary.ownerNet)}.
         </p>
       </div>
       <div className="mt-3 shrink-0 xl:mt-0 xl:text-right">
@@ -621,15 +650,23 @@ function SettlementMath({
     each,
     jaredPaid,
     justinPaid,
+    paintFee,
+    paintAds,
+    jaredPaintAds,
     jaredPayout,
     justinKeeps,
-    jaredFinal,
     balanced,
   } = figures;
+  const poolExpenses = expenseRows.filter((expense) => !isPaintAdExpense(expense));
+  const washPayout = jaredPayout - paintFee;
+  const washFinal = washPayout - jaredPaid - jaredPaintAds;
+  const jaredLeft = [formatCurrency(each), formatCurrency(jaredPaid)];
+  if (jaredPaintAds > 0) jaredLeft.push(formatCurrency(jaredPaintAds));
+  const paintTail = paintFee > 0 ? ` + paint ${formatCurrency(paintFee)}` : "";
 
   return (
     <div className="space-y-5 border-t border-brand-border px-4 py-4 xl:px-6 xl:py-5">
-      <SplitPool gross={gross} expenses={expenses} net={net} rows={expenseRows} />
+      <SplitPool gross={gross} expenses={expenses} net={net} rows={poolExpenses} />
       <p className="max-w-xl text-base font-medium leading-snug tabular-nums text-brand-black">
         {formatCurrency(net)} ÷ 2 = {formatCurrency(each)} each
       </p>
@@ -637,17 +674,22 @@ function SettlementMath({
       <div className="space-y-0.5 text-sm text-gray-600">
         <p>Jared paid {formatCurrency(jaredPaid)}</p>
         <p>Justin paid {formatCurrency(justinPaid)}</p>
+        {paintAds > 0 ? <p>Paint ads reimbursed {formatCurrency(paintAds)}</p> : null}
       </div>
 
       <div className="max-w-xl space-y-4">
         <EquationLine
           label="Jared"
-          left={`${formatCurrency(each)} + ${formatCurrency(jaredPaid)}`}
-          result={formatCurrency(jaredPayout)}
+          left={jaredLeft.join(" + ")}
+          result={
+            paintFee > 0
+              ? `${formatCurrency(washPayout)}${paintTail} = ${formatCurrency(jaredPayout)}`
+              : formatCurrency(washPayout)
+          }
         />
         <EquationLine
           label="Justin"
-          left={`${formatCurrency(gross)} − ${formatCurrency(justinPaid)} − ${formatCurrency(jaredPayout)}`}
+          left={`${formatCurrency(gross)} − ${formatCurrency(justinPaid)} − ${formatCurrency(washPayout)}`}
           result={formatCurrency(justinKeeps)}
         />
       </div>
@@ -656,8 +698,9 @@ function SettlementMath({
         <p className="text-sm font-bold text-brand-black">Final</p>
         <ul className="mt-2 space-y-1.5 text-sm leading-snug tabular-nums text-gray-800">
           <li>
-            <span className="font-bold text-brand-black">Jared:</span> {formatCurrency(jaredPayout)} −{" "}
-            {formatCurrency(jaredPaid)} = {formatCurrency(jaredFinal)}
+            <span className="font-bold text-brand-black">Jared:</span> {formatCurrency(washPayout)} −{" "}
+            {formatCurrency(jaredPaid + jaredPaintAds)} = {formatCurrency(washFinal)}
+            {paintTail}
           </li>
           <li>
             <span className="font-bold text-brand-black">Justin:</span> {formatCurrency(justinKeeps)}

@@ -26,7 +26,16 @@ export function jobPaidAdSource(
   return null;
 }
 
-export function adSpendPlatform(note?: string): AdSource | null {
+export function isPaintAdNote(note?: string): boolean {
+  const text = (note ?? "").toLowerCase();
+  return text.includes("paint") || text.includes("cabinet");
+}
+
+export function isPaintAdExpense(expense: { type: string; note?: string }): boolean {
+  return expense.type === "Ads" && isPaintAdNote(expense.note);
+}
+
+function platformFromNote(note?: string): AdSource | null {
   const text = (note ?? "").toLowerCase();
   if (text.includes("google")) return "google";
   if (
@@ -39,4 +48,37 @@ export function adSpendPlatform(note?: string): AdSource | null {
     return "meta";
   }
   return null;
+}
+
+/** Power-washing ad platform. Paint ads are not Meta/Google for ROAS. */
+export function adSpendPlatform(note?: string): AdSource | null {
+  if (isPaintAdNote(note)) return null;
+  return platformFromNote(note);
+}
+
+export function adsNoteKind(note?: string): "paint" | AdSource | null {
+  if (isPaintAdNote(note)) return "paint";
+  return platformFromNote(note);
+}
+
+export type AdsNoteKind = NonNullable<ReturnType<typeof adsNoteKind>>;
+
+export const ADS_NOTE_OPTIONS: { value: AdsNoteKind; label: string }[] = [
+  { value: "meta", label: "Meta" },
+  { value: "google", label: "Google" },
+  { value: "paint", label: "Paint" },
+];
+
+const ADS_NOTE_WORDS: Record<AdsNoteKind, string> = {
+  meta: "Meta",
+  google: "Google",
+  paint: "Paint",
+};
+
+export function adsExpenseNote(kind: AdsNoteKind, extra?: string) {
+  const word = ADS_NOTE_WORDS[kind];
+  const text = (extra ?? "").trim();
+  if (!text) return word;
+  if (adsNoteKind(text) === kind) return text;
+  return `${word} ${text}`;
 }

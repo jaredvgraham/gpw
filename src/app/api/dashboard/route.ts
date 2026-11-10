@@ -10,6 +10,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { jobCustomerPopulate } from "@/lib/job-populate";
 import { getJobDateOnly } from "@/lib/dates";
+import { powerWashRevenue } from "@/lib/paint-jobs";
 import { apiError, apiSuccess } from "@/lib/api";
 import { requireApiAuth } from "@/lib/api-auth";
 import Job from "@/models/Job";
@@ -63,12 +64,12 @@ export async function GET(request: NextRequest) {
     );
 
     const estimatedRevenueWeek = weekJobs.reduce(
-      (sum, job) => sum + (job.finalPrice ?? 0),
+      (sum, job) => sum + powerWashRevenue(job),
       0
     );
 
     const estimatedRevenueMonth = monthJobs.reduce(
-      (sum, job) => sum + (job.finalPrice ?? 0),
+      (sum, job) => sum + powerWashRevenue(job),
       0
     );
 

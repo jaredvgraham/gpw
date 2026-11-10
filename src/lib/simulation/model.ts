@@ -1,7 +1,9 @@
 import { addMonths, differenceInCalendarDays, endOfMonth, format, startOfMonth, subMonths } from "date-fns";
+import { isPaintAdExpense } from "@/lib/ad-source";
 import { getJobDateOnly } from "@/lib/dates";
 import { AD_SOURCE_BUCKETS, leadSourceBucket } from "@/lib/owner-metrics";
 import { bookingAddressKey } from "@/lib/owner-metrics";
+import { isPaintOnlyJob, isPaintOnlyLead, powerWashRevenue } from "@/lib/paint-jobs";
 import type { Expense, Job, Lead } from "@/types";
 
 /** Average month, in days. Period totals are scaled to this so every number reads "per month". */
@@ -411,16 +413,18 @@ export function deriveBaseline(jobs: Job[], leads: Lead[], expenses: Expense[], 
   const inRange = (date: string) => date >= start && date <= end;
   const assumed: LeverId[] = [];
 
-  const periodJobs = jobs.filter((job) => isActive(job) && inRange(getJobDateOnly(job.jobDate)));
-  const priced = periodJobs.filter((job) => (job.finalPrice ?? 0) > 0);
-  const gross = periodJobs.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
+  const periodJobs = jobs.filter(
+    (job) => isActive(job) && !isPaintOnlyJob(job) && inRange(getJobDateOnly(job.jobDate)),
+  );
+  const priced = periodJobs.filter((job) => powerWashRevenue(job) > 0);
+  const gross = periodJobs.reduce((sum, job) => sum + powerWashRevenue(job), 0);
 
   // First-time vs repeat houses, judged against the full job history.
   const seen = new Set<string>();
   let firstTimeJobs = 0;
   let repeatJobs = 0;
   for (const job of [...jobs]
-    .filter(isActive)
+    .filter((job) => isActive(job) && !isPaintOnlyJob(job))
     .sort((a, b) => getJobDateOnly(a.jobDate).localeCompare(getJobDateOnly(b.jobDate)))) {
     const key = houseKey(job);
     const repeat = key ? seen.has(key) : false;
@@ -430,11 +434,15 @@ export function deriveBaseline(jobs: Job[], leads: Lead[], expenses: Expense[], 
     else firstTimeJobs += 1;
   }
 
-  const periodLeads = leads.filter((lead) => lead.source !== "phone" && inRange(getJobDateOnly(lead.createdAt)));
+  const periodLeads = leads.filter(
+    (lead) => lead.source !== "phone" && !isPaintOnlyLead(lead) && inRange(getJobDateOnly(lead.createdAt)),
+  );
   const adLeadCount = periodLeads.filter((lead) => AD_SOURCE_BUCKETS.has(leadSourceBucket(lead))).length;
   const organicCount = periodLeads.length - adLeadCount;
 
-  const periodExpenses = expenses.filter((expense) => inRange(getJobDateOnly(expense.date)));
+  const periodExpenses = expenses.filter(
+    (expense) => inRange(getJobDateOnly(expense.date)) && !isPaintAdExpense(expense),
+  );
   const sumType = (...types: string[]) =>
     periodExpenses.filter((e) => types.includes(e.type)).reduce((sum, e) => sum + e.amount, 0);
   const ads = sumType("Ads");
@@ -537,10 +545,12 @@ export function actualMonths(jobs: Job[], expenses: Expense[], count: number, no
     const date = subMonths(now, i);
     const from = format(startOfMonth(date), "yyyy-MM-dd");
     const to = format(endOfMonth(date), "yyyy-MM-dd");
-    const monthJobs = jobs.filter((job) => isActive(job) && getJobDateOnly(job.jobDate) >= from && getJobDateOnly(job.jobDate) <= to);
-    const revenue = monthJobs.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
+    const monthJobs = jobs.filter(
+      (job) => isActive(job) && !isPaintOnlyJob(job) && getJobDateOnly(job.jobDate) >= from && getJobDateOnly(job.jobDate) <= to,
+    );
+    const revenue = monthJobs.reduce((sum, job) => sum + powerWashRevenue(job), 0);
     const spent = expenses
-      .filter((e) => getJobDateOnly(e.date) >= from && getJobDateOnly(e.date) <= to)
+      .filter((e) => getJobDateOnly(e.date) >= from && getJobDateOnly(e.date) <= to && !isPaintAdExpense(e))
       .reduce((sum, e) => sum + e.amount, 0);
     months.push({
       key: format(date, "yyyy-MM"),

@@ -1,4 +1,5 @@
-import { adSpendPlatform, jobPaidAdSource } from "@/lib/ad-source";
+import { adSpendPlatform, isPaintAdExpense, jobPaidAdSource } from "@/lib/ad-source";
+import { isPaintOnlyJob, isPaintOnlyLead } from "@/lib/paint-jobs";
 import { EXPENSE_TYPES, type ExpenseType } from "@/lib/expenses";
 import { getJobDateOnly } from "@/lib/dates";
 import type { Customer, Expense, Job, Lead } from "@/types";
@@ -184,6 +185,7 @@ export function attributeJobs(jobs: Job[], leads: Lead[]): Map<string, JobAttrib
 
   for (const lead of leads) {
     if (lead.source === "phone") continue;
+    if (isPaintOnlyLead(lead)) continue;
     const address = bookingAddressKey(lead.address, lead.town);
     const phone = phoneKey(lead.phone);
     if (!address && lead.source !== "meta_ad") continue;
@@ -238,7 +240,7 @@ export function computeOwnerSnapshot(
 ): OwnerSnapshot {
   const start = from <= to ? from : to;
   const end = from <= to ? to : from;
-  jobs = jobs.filter((job) => (job.finalPrice ?? 0) > 0);
+  jobs = jobs.filter((job) => (job.finalPrice ?? 0) > 0 && !isPaintOnlyJob(job));
   const attribution = attributeJobs(jobs, leads);
   const bookedLeadIds = new Set(
     [...attribution.values()].map((item) => item.leadId).filter((id): id is string => Boolean(id))
@@ -259,6 +261,7 @@ export function computeOwnerSnapshot(
 
   for (const lead of leads) {
     if (lead.source === "phone") continue;
+    if (isPaintOnlyLead(lead)) continue;
     const day = leadDay(lead);
     if (!inRange(day, start, end)) continue;
     const row = rows.get(leadSourceBucket(lead));
@@ -288,7 +291,9 @@ export function computeOwnerSnapshot(
   )];
   if (noLead.jobTotal > 0) sources.push(noLead);
 
-  const periodExpenses = expenses.filter((expense) => inRange(getJobDateOnly(expense.date), start, end));
+  const periodExpenses = expenses.filter(
+    (expense) => inRange(getJobDateOnly(expense.date), start, end) && !isPaintAdExpense(expense)
+  );
   const expensesByType = EXPENSE_TYPES.map((type) => ({
     type,
     amount: periodExpenses

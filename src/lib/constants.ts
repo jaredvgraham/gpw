@@ -19,6 +19,10 @@ export const DEFAULT_SERVICES = [
   { name: "Fence cleaning", description: "Fence pressure washing" },
   { name: "Stone walls", description: "Stone wall pressure washing" },
   { name: "Gutter cleaning", description: "Gutter cleaning and flushing" },
+  { name: "Kitchen Cabinet Painting & Refinishing", description: "Cabinet doors, drawers, and frames" },
+  { name: "Cabinet Painting + Tile Backsplash Package", description: "Cabinet refinishing plus a new tile backsplash" },
+  { name: "Interior Painting", description: "Walls, ceilings, trim, and doors" },
+  { name: "Exterior Painting", description: "Siding, trim, decks, and fences" },
   { name: "Other", description: "Custom service" },
 ] as const;
 

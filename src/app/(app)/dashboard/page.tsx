@@ -32,6 +32,7 @@ import { STATUS_COLORS } from "@/lib/constants";
 import { useAppData } from "@/contexts/AppDataContext";
 import { getJobDateOnly } from "@/lib/dates";
 import { computeOwnerSnapshot } from "@/lib/owner-metrics";
+import { isPaintOnlyJob } from "@/lib/paint-jobs";
 import type { Expense, Lead } from "@/types";
 
 type ReportLens = "money" | "sources" | "jobs";
@@ -160,6 +161,7 @@ export default function DashboardPage() {
     const byDate = new Map<string, { jobs: number; gross: number }>();
     for (const job of jobs) {
       if (job.status === "Cancelled") continue;
+      if (isPaintOnlyJob(job)) continue;
       const price = job.finalPrice ?? 0;
       if (price <= 0) continue;
       const date = getJobDateOnly(job.jobDate);

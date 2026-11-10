@@ -6,7 +6,9 @@ import {
   subDays,
   subMonths,
 } from "date-fns";
+import { isPaintAdExpense } from "@/lib/ad-source";
 import { getJobDateOnly } from "@/lib/dates";
+import { isPaintOnlyJob, jobPaintFee } from "@/lib/paint-jobs";
 import type { Expense, Job } from "@/types";
 
 export const SPLIT_PRESETS = [
@@ -72,6 +74,10 @@ export interface SplitSummary {
   paidByJustin: number;
   net: number;
   ownerNet: number;
+  paintFee: number;
+  paintAds: number;
+  jaredPaintAds: number;
+  checksTotal: number;
   /** Jared's half of the expenses Justin paid. */
   jaredOwesJustin: number;
   /** Jared's half of the checks, plus Justin's half of the expenses Jared paid. */
@@ -89,6 +95,10 @@ export interface SettlementFigures {
   each: number;
   jaredPaid: number;
   justinPaid: number;
+  paintFee: number;
+  paintAds: number;
+  jaredPaintAds: number;
+  checksTotal: number;
   /** Jared's half plus the expenses he already paid. Justin sends this from the checks. */
   jaredPayout: number;
   /** What Justin has left after his expenses and Jared's payout. */
@@ -114,9 +124,14 @@ export function settlementFigures(summary: SplitSummary): SettlementFigures {
   const each = Math.round(net / 2);
   const jaredPaid = toCents(summary.paidByJared);
   const justinPaid = toCents(summary.paidByJustin);
-  const jaredPayout = each + jaredPaid;
-  const justinKeeps = gross - justinPaid - jaredPayout;
-  const jaredFinal = jaredPayout - jaredPaid;
+  const paintFee = toCents(summary.paintFee);
+  const paintAds = toCents(summary.paintAds);
+  const jaredPaintAds = toCents(summary.jaredPaintAds);
+  const checksTotal = toCents(summary.checksTotal);
+  const jaredWashPayout = each + jaredPaid + jaredPaintAds;
+  const jaredPayout = jaredWashPayout + paintFee;
+  const justinKeeps = gross - justinPaid - jaredWashPayout;
+  const jaredFinal = jaredPayout - jaredPaid - jaredPaintAds;
 
   return {
     gross: fromCents(gross),
@@ -125,10 +140,14 @@ export function settlementFigures(summary: SplitSummary): SettlementFigures {
     each: fromCents(each),
     jaredPaid: fromCents(jaredPaid),
     justinPaid: fromCents(justinPaid),
+    paintFee: fromCents(paintFee),
+    paintAds: fromCents(paintAds),
+    jaredPaintAds: fromCents(jaredPaintAds),
+    checksTotal: fromCents(checksTotal),
     jaredPayout: fromCents(jaredPayout),
     justinKeeps: fromCents(justinKeeps),
     jaredFinal: fromCents(jaredFinal),
-    balanced: jaredFinal === justinKeeps,
+    balanced: paintFee === 0 && paintAds === 0 && jaredFinal === justinKeeps,
   };
 }
 
@@ -137,28 +156,35 @@ function summarize(includedJobs: Job[], expenses: Expense[], range: DateRange): 
     .filter((expense) => inRange(getJobDateOnly(expense.date), range.from, range.to))
     .sort((a, b) => getJobDateOnly(b.date).localeCompare(getJobDateOnly(a.date)));
 
+  const pwJobs = includedJobs.filter((job) => !isPaintOnlyJob(job));
+  const paintAds = rangedExpenses.filter(isPaintAdExpense);
+  const pwExpenses = rangedExpenses.filter((expense) => !isPaintAdExpense(expense));
+
   // Job totals only. Whether the customer has paid is ignored on purpose.
-  const gross = includedJobs.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
-  const expensesTotal = rangedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const paidByJared = rangedExpenses
+  const gross = pwJobs.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
+  const checksTotal = includedJobs.reduce((sum, job) => sum + (job.finalPrice ?? 0), 0);
+  const paintFee = includedJobs.reduce((sum, job) => sum + jobPaintFee(job), 0);
+  const paintAdsTotal = paintAds.reduce((sum, expense) => sum + expense.amount, 0);
+  const jaredPaintAds = paintAds
     .filter((expense) => expense.paidBy === "Jared")
     .reduce((sum, expense) => sum + expense.amount, 0);
-  const paidByJustin = rangedExpenses
+  const expensesTotal = pwExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const paidByJared = pwExpenses
+    .filter((expense) => expense.paidBy === "Jared")
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  const paidByJustin = pwExpenses
     .filter((expense) => expense.paidBy === "Justin")
     .reduce((sum, expense) => sum + expense.amount, 0);
   const net = gross - expensesTotal;
   const ownerNet = net / 2;
 
-  // Justin holds the customer checks. Each owner covers half of every expense.
-  // Jared owes Justin half of what Justin paid. Justin owes Jared half the
-  // checks, plus half of what Jared paid. The difference is the cash transfer,
-  // and it can run either direction.
+  // Wash 50/50 only. Paint 5% is Jared's and stays off Justin's side.
   const jaredOwesJustin = paidByJustin / 2;
-  const justinOwesJared = gross / 2 + paidByJared / 2;
+  const justinOwesJared = gross / 2 + paidByJared / 2 + jaredPaintAds;
   const justinPaysJared = justinOwesJared - jaredOwesJustin;
 
   return {
-    jobCount: includedJobs.length,
+    jobCount: pwJobs.length,
     gross,
     expensesTotal,
     ownerExpenses: expensesTotal / 2,
@@ -166,6 +192,10 @@ function summarize(includedJobs: Job[], expenses: Expense[], range: DateRange): 
     paidByJustin,
     net,
     ownerNet,
+    paintFee,
+    paintAds: paintAdsTotal,
+    jaredPaintAds,
+    checksTotal,
     jaredOwesJustin,
     justinOwesJared,
     justinPaysJared,

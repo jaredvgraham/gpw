@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { JOB_STATUSES } from "@/lib/constants";
-import { AD_SOURCES, adSpendPlatform } from "@/lib/ad-source";
+import { AD_SOURCES, adsNoteKind } from "@/lib/ad-source";
 import { EXPENSE_PAYERS, EXPENSE_TYPES } from "@/lib/expenses";
 import { timeToMinutes } from "@/lib/job-scheduling";
 
@@ -80,8 +80,8 @@ export const expenseSchema = z
     date: z.string().min(1, "Date is required"),
     note: z.string().trim().optional(),
   })
-  .refine((data) => data.type !== "Ads" || Boolean(adSpendPlatform(data.note)), {
-    message: "Write Meta or Google in the note.",
+  .refine((data) => data.type !== "Ads" || Boolean(adsNoteKind(data.note)), {
+    message: "Write Meta, Google, or Paint in the note.",
     path: ["note"],
   });
 
