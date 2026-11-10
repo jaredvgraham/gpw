@@ -1,26 +1,10 @@
 import { NextRequest } from "next/server";
-import { z } from "zod";
 import { connectDB } from "@/lib/mongodb";
 import { requireApiAuth } from "@/lib/api-auth";
 import { apiError, apiSuccess } from "@/lib/api";
 import { parseJobDateOnly } from "@/lib/dates";
-import { EXPENSE_PAYERS, EXPENSE_TYPES } from "@/lib/expenses";
+import { expenseSchema } from "@/lib/validations";
 import Expense from "@/models/Expense";
-
-const expenseSchema = z.object({
-  type: z.enum(EXPENSE_TYPES),
-  paidBy: z.enum(EXPENSE_PAYERS),
-  amount: z.preprocess(
-    (val) => {
-      if (val === "" || val === undefined || val === null) return undefined;
-      const num = Number(val);
-      return Number.isNaN(num) ? undefined : num;
-    },
-    z.number({ message: "Amount is required" }).min(0, "Amount cannot be negative"),
-  ),
-  date: z.string().min(1, "Date is required"),
-  note: z.string().trim().optional(),
-});
 
 export async function GET(request: NextRequest) {
   const authError = await requireApiAuth(request);

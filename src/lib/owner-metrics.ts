@@ -1,3 +1,4 @@
+import { adSpendPlatform, jobPaidAdSource } from "@/lib/ad-source";
 import { EXPENSE_TYPES, type ExpenseType } from "@/lib/expenses";
 import { getJobDateOnly } from "@/lib/dates";
 import type { Customer, Expense, Job, Lead } from "@/types";
@@ -84,6 +85,10 @@ export interface OwnerSnapshot {
   expensesByType: ExpenseSlice[];
   adSpend: number;
   adRevenue: number;
+  googleAdSpend: number;
+  googleAdRevenue: number;
+  metaAdSpend: number;
+  metaAdRevenue: number;
   materials: number;
   completedJobs: number;
   materialsPerJob: number | null;
@@ -178,14 +183,15 @@ export function attributeJobs(jobs: Job[], leads: Lead[]): Map<string, JobAttrib
   const byPhone = new Map<string, Lead[]>();
 
   for (const lead of leads) {
-    if (lead.source === "phone" || !leadHasAddress(lead)) continue;
+    if (lead.source === "phone") continue;
     const address = bookingAddressKey(lead.address, lead.town);
+    const phone = phoneKey(lead.phone);
+    if (!address && lead.source !== "meta_ad") continue;
     if (address) {
       const list = byAddress.get(address) ?? [];
       list.push(lead);
       byAddress.set(address, list);
     }
-    const phone = phoneKey(lead.phone);
     if (phone) {
       const list = byPhone.get(phone) ?? [];
       list.push(lead);
@@ -291,9 +297,27 @@ export function computeOwnerSnapshot(
   }));
 
   const adSpend = expensesByType.find((slice) => slice.type === "Ads")?.amount ?? 0;
-  const adRevenue = sources
-    .filter((row) => AD_SOURCES.has(row.source as SourceBucket))
-    .reduce((sum, row) => sum + row.jobTotal, 0);
+  let googleAdSpend = 0;
+  let metaAdSpend = 0;
+  for (const expense of periodExpenses) {
+    if (expense.type !== "Ads") continue;
+    const platform = adSpendPlatform(expense.note);
+    if (platform === "google") googleAdSpend += expense.amount;
+    if (platform === "meta") metaAdSpend += expense.amount;
+  }
+
+  const leadsById = new Map(leads.map((lead) => [lead._id, lead]));
+  let googleAdRevenue = 0;
+  let metaAdRevenue = 0;
+  for (const job of jobs) {
+    if (!isActive(job) || !inRange(getJobDateOnly(job.jobDate), start, end)) continue;
+    const amount = job.finalPrice ?? 0;
+    const leadId = attribution.get(job._id)?.leadId;
+    const platform = jobPaidAdSource(job, leadId ? leadsById.get(leadId) : null);
+    if (platform === "google") googleAdRevenue += amount;
+    if (platform === "meta") metaAdRevenue += amount;
+  }
+  const adRevenue = googleAdRevenue + metaAdRevenue;
   const materials =
     (expensesByType.find((slice) => slice.type === "Gas")?.amount ?? 0) +
     (expensesByType.find((slice) => slice.type === "Bleach")?.amount ?? 0);
@@ -340,6 +364,10 @@ export function computeOwnerSnapshot(
     expensesByType,
     adSpend,
     adRevenue,
+    googleAdSpend,
+    googleAdRevenue,
+    metaAdSpend,
+    metaAdRevenue,
     materials,
     completedJobs,
     materialsPerJob: completedJobs > 0 ? materials / completedJobs : null,

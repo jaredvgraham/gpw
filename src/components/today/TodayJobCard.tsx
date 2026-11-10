@@ -63,6 +63,7 @@ function buildPatchBody(
     paid: overrides.paid ?? job.paid ?? false,
     internalNotes: job.internalNotes,
     photoNotes: job.photoNotes,
+    adSource: job.adSource ?? "",
   };
 }
 

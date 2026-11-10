@@ -416,7 +416,12 @@ export default function DashboardPage() {
                 stats={[...dailyStats, ...statement.stats]}
               />
               <div className="mt-3">
-                <OwnerBoard part="money" snapshot={ownerSnapshot} leadsReady={leadsReady} />
+                <OwnerBoard
+                  part="money"
+                  snapshot={ownerSnapshot}
+                  leadsReady={leadsReady}
+                  net={expensesReady ? profit.net : null}
+                />
               </div>
               <Link
                 href="/simulation"

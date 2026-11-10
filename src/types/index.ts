@@ -1,5 +1,6 @@
 import type { JobStatus } from "@/lib/constants";
 import type { ExpensePayer, ExpenseType } from "@/lib/expenses";
+import type { AdSource } from "@/lib/ad-source";
 
 export interface Customer {
   _id: string;
@@ -55,6 +56,7 @@ export interface Job {
   paid?: boolean;
   internalNotes?: string;
   photoNotes?: string;
+  adSource?: AdSource;
   createdAt: string;
   updatedAt: string;
 }

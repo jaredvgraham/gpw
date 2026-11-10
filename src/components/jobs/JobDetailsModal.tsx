@@ -12,6 +12,8 @@ import CopyAddressButton from "@/components/ui/CopyAddressButton";
 import { formatCurrency, getCustomerAddress, getJobDuration } from "@/lib/utils";
 import { useAppData } from "@/contexts/AppDataContext";
 import { notifyJobSaved, useJobModals } from "@/contexts/JobModalContext";
+import type { AdSource } from "@/lib/ad-source";
+import AdSourcePicker from "@/components/jobs/AdSourcePicker";
 
 interface JobDetailsModalProps {
   job: Job | null;
@@ -30,10 +32,14 @@ export default function JobDetailsModal({
   const { jobs } = useAppData();
   const [loading, setLoading] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [adSource, setAdSource] = useState<AdSource | "">("");
 
   useEffect(() => {
-    if (open && job) setPaid(job.paid ?? false);
-  }, [open, job?._id, job?.paid]);
+    if (open && job) {
+      setPaid(job.paid ?? false);
+      setAdSource(job.adSource ?? "");
+    }
+  }, [open, job?._id, job?.paid, job?.adSource]);
 
   if (!job) return null;
 
@@ -50,7 +56,7 @@ export default function JobDetailsModal({
     { label: "Photo notes", value: job.photoNotes },
   ].filter((note) => note.value);
 
-  function buildPatchBody(overrides: { status?: string; paid?: boolean } = {}) {
+  function buildPatchBody(overrides: { status?: string; paid?: boolean; adSource?: AdSource | "" } = {}) {
     const customerId =
       typeof job!.customer === "object" ? job!.customer._id : job!.customer;
     return {
@@ -69,11 +75,12 @@ export default function JobDetailsModal({
       paid: overrides.paid ?? paid,
       internalNotes: job!.internalNotes,
       photoNotes: job!.photoNotes,
+      adSource: overrides.adSource ?? adSource,
     };
   }
 
   async function patchJob(
-    overrides: { status?: string; paid?: boolean },
+    overrides: { status?: string; paid?: boolean; adSource?: AdSource | "" },
     closeAfter = false
   ) {
     setLoading(true);
@@ -84,6 +91,7 @@ export default function JobDetailsModal({
         body: JSON.stringify(buildPatchBody(overrides)),
       });
       if (overrides.paid !== undefined) setPaid(overrides.paid);
+      if (overrides.adSource !== undefined) setAdSource(overrides.adSource);
       notifyJobSaved();
       onUpdated?.();
       if (closeAfter) onClose();
@@ -164,6 +172,19 @@ export default function JobDetailsModal({
         {services.length > 0 ? (
           <p className="mt-6 text-[15px] leading-relaxed text-gray-600">{services.join(" · ")}</p>
         ) : null}
+
+        <div className="mt-8 border-t border-gray-100 pt-6">
+          <p className="text-sm font-medium text-gray-700">Ad source</p>
+          <div className="mt-2">
+            <AdSourcePicker
+              value={adSource}
+              disabled={loading}
+              onChange={(next) => {
+                void patchJob({ adSource: next });
+              }}
+            />
+          </div>
+        </div>
 
         <div className="mt-8 flex items-center justify-between gap-6 border-t border-gray-100 pt-6">
           <p className="text-4xl font-semibold tabular-nums tracking-tight text-gray-950">

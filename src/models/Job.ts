@@ -1,5 +1,6 @@
 import mongoose, { Schema, type Model } from "mongoose";
 import { JOB_STATUSES } from "@/lib/constants";
+import { AD_SOURCES, type AdSource } from "@/lib/ad-source";
 import "./Customer";
 import "./Service";
 import "./Household";
@@ -22,6 +23,7 @@ export interface IJob {
   paid?: boolean;
   internalNotes?: string;
   photoNotes?: string;
+  adSource?: AdSource;
 }
 
 const JobServiceSchema = new Schema<IJobService>(
@@ -50,6 +52,7 @@ const JobSchema = new Schema<IJob>(
     paid: { type: Boolean, default: false },
     internalNotes: { type: String, trim: true },
     photoNotes: { type: String, trim: true },
+    adSource: { type: String, enum: AD_SOURCES },
   },
   { timestamps: true }
 );
@@ -58,7 +61,10 @@ JobSchema.index({ jobDate: 1 });
 JobSchema.index({ status: 1 });
 JobSchema.index({ customer: 1 });
 
-const Job: Model<IJob> =
-  mongoose.models.Job ?? mongoose.model<IJob>("Job", JobSchema);
+if (mongoose.models.Job) {
+  mongoose.deleteModel("Job");
+}
+
+const Job: Model<IJob> = mongoose.model<IJob>("Job", JobSchema);
 
 export default Job;

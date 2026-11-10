@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAppData } from "@/contexts/AppDataContext";
+import { adSpendPlatform } from "@/lib/ad-source";
 import {
   EXPENSE_COLORS,
   EXPENSE_PAYERS,
@@ -25,6 +26,7 @@ import {
   type SplitPreset,
   type SplitSummary,
 } from "@/lib/split";
+import { getJobDateOnly } from "@/lib/dates";
 import { formatCurrency, formatDate, getCustomerName } from "@/lib/utils";
 import type { Expense } from "@/types";
 
@@ -44,7 +46,9 @@ export default function SplitPage() {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const formRef = useRef<HTMLElement>(null);
 
   const rangeInvalid = from > to;
 
@@ -92,38 +96,65 @@ export default function SplitPage() {
     setExpenseDate(range.to);
   }
 
-  async function addExpense() {
-    setFormError("");
+  function expensePayload() {
     const parsedAmount = Number(amount);
     if (!expenseDate) {
       setFormError("Pick a date.");
-      return;
+      return null;
     }
     if (Number.isNaN(parsedAmount) || parsedAmount < 0) {
       setFormError("Enter an amount.");
-      return;
+      return null;
     }
+    if (type === "Ads" && !adSpendPlatform(note)) {
+      setFormError("Write Meta or Google in the note.");
+      return null;
+    }
+    return {
+      type,
+      amount: parsedAmount,
+      paidBy,
+      date: expenseDate,
+      note: note.trim() || undefined,
+    };
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setAmount("");
+    setNote("");
+    setFormError("");
+  }
+
+  function startEdit(expense: Expense) {
+    setEditingId(expense._id);
+    setType(expense.type);
+    setPaidBy(expense.paidBy ?? "Justin");
+    setAmount(String(expense.amount));
+    setExpenseDate(getJobDateOnly(expense.date));
+    setNote(expense.note ?? "");
+    setFormError("");
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function saveExpense() {
+    setFormError("");
+    const payload = expensePayload();
+    if (!payload) return;
 
     setSaving(true);
     try {
-      const res = await fetch("/api/expenses", {
-        method: "POST",
+      const res = await fetch(editingId ? `/api/expenses/${editingId}` : "/api/expenses", {
+        method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type,
-          amount: parsedAmount,
-          paidBy,
-          date: expenseDate,
-          note: note.trim() || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
         setFormError(data.error ?? "Could not save expense.");
         return;
       }
-      setAmount("");
-      setNote("");
+      resetForm();
       await fetchExpenses();
     } catch (error) {
       console.error(error);
@@ -140,6 +171,7 @@ export default function SplitPage() {
       const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
       if (!res.ok) return;
       setExpenses((current) => current.filter((expense) => expense._id !== id));
+      if (editingId === id) resetForm();
     } finally {
       setDeletingId(null);
     }
@@ -252,13 +284,15 @@ export default function SplitPage() {
           <div className="space-y-4 xl:grid xl:grid-cols-3 xl:items-start xl:gap-4 xl:space-y-0">
           {summary.expenses.some((expense) => !expense.paidBy) && (
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 xl:col-span-3">
-              Some older expenses don&apos;t say who paid. Delete and re-add them so the payout is right.
+              Some older expenses don&apos;t say who paid. Edit them so the payout is right.
             </p>
           )}
 
-          <section className="rounded-xl border border-brand-border bg-white">
+          <section ref={formRef} className="rounded-xl border border-brand-border bg-white">
             <div className="border-b border-brand-border px-4 py-3">
-              <h2 className="text-base font-semibold text-brand-black">Add expense</h2>
+              <h2 className="text-base font-semibold text-brand-black">
+                {editingId ? "Edit expense" : "Add expense"}
+              </h2>
             </div>
             <div className="space-y-3 p-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -314,22 +348,41 @@ export default function SplitPage() {
                   onChange={(e) => setExpenseDate(e.target.value)}
                 />
               </div>
+              {type === "Ads" ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Write Meta or Google in the note so we know which ads this was.
+                </p>
+              ) : null}
               <Input
                 label="Note"
-                placeholder="Optional"
+                required={type === "Ads"}
+                placeholder={type === "Ads" ? "Meta or Google" : "Optional"}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
               {formError && <p className="text-sm text-brand-red">{formError}</p>}
-              <Button
-                type="button"
-                onClick={() => void addExpense()}
-                disabled={saving}
-                className="w-full min-h-12"
-              >
-                <Plus className="mr-1.5 h-4 w-4" />
-                {saving ? "Saving…" : "Add expense"}
-              </Button>
+              <div className="flex gap-2">
+                {editingId ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={resetForm}
+                    disabled={saving}
+                    className="min-h-12 flex-1"
+                  >
+                    Cancel
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  onClick={() => void saveExpense()}
+                  disabled={saving}
+                  className="min-h-12 flex-1"
+                >
+                  {editingId ? null : <Plus className="mr-1.5 h-4 w-4" />}
+                  {saving ? "Saving…" : editingId ? "Save expense" : "Add expense"}
+                </Button>
+              </div>
             </div>
           </section>
 
@@ -346,7 +399,12 @@ export default function SplitPage() {
             ) : (
               <ul className="divide-y divide-brand-border">
                 {summary.expenses.map((expense) => (
-                  <li key={expense._id} className="flex items-start gap-3 px-4 py-3">
+                  <li
+                    key={expense._id}
+                    className={`flex items-start gap-3 px-4 py-3 ${
+                      editingId === expense._id ? "bg-blue-50" : ""
+                    }`}
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-brand-black">{expense.type}</p>
@@ -362,10 +420,18 @@ export default function SplitPage() {
                         Each owner {formatCurrency(expense.amount / 2)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold tabular-nums text-brand-black">
+                    <div className="flex items-center gap-1">
+                      <p className="pr-1 font-bold tabular-nums text-brand-black">
                         {formatCurrency(expense.amount)}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(expense)}
+                        className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 active:bg-blue-50 active:text-brand-blue"
+                        aria-label={`Edit ${expense.type} expense`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => void deleteExpense(expense._id)}

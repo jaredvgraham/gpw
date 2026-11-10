@@ -18,6 +18,8 @@ import type { Job, Lead, Service, Customer } from "@/types";
 import { getJobDuration } from "@/lib/utils";
 import { sortServicesForDisplay } from "@/lib/services";
 import { useAppData } from "@/contexts/AppDataContext";
+import type { AdSource } from "@/lib/ad-source";
+import AdSourcePicker from "@/components/jobs/AdSourcePicker";
 import { Calendar, User, MapPin, Wrench, DollarSign, FileText } from "lucide-react";
 
 interface JobFormProps {
@@ -169,6 +171,7 @@ export default function JobForm({
   const [leadFocus, setLeadFocus] = useState<LeadField | null>(null);
   const [leadMatchesOpen, setLeadMatchesOpen] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [adSourceLocked, setAdSourceLocked] = useState(false);
   const hideLeadMatches = useRef<number | null>(null);
 
   const customer =
@@ -211,6 +214,7 @@ export default function JobForm({
       finalPrice: job?.finalPrice,
       paid: job?.paid ?? false,
       internalNotes: job?.internalNotes ?? "",
+      adSource: job?.adSource ?? "",
     },
   });
 
@@ -220,6 +224,7 @@ export default function JobForm({
   const endTime = watch("endTime");
   const selectedServices = watch("services");
   const isPaid = watch("paid");
+  const adSource = watch("adSource");
   const customerName = watch("customer.name") ?? "";
   const customerPhone = watch("customer.phone") ?? "";
   const customerStreet = watch("customer.streetAddress") ?? "";
@@ -279,6 +284,12 @@ export default function JobForm({
       .join("\n");
     if (note && !watch("internalNotes")?.trim()) {
       setValue("internalNotes", note, { shouldDirty: true });
+    }
+    if (!isEditing && lead.source === "meta_ad") {
+      setValue("adSource", "meta", { shouldDirty: true });
+      setAdSourceLocked(true);
+    } else {
+      setAdSourceLocked(false);
     }
     setLeadMatchesOpen(false);
   }
@@ -633,6 +644,15 @@ export default function JobForm({
                   <span className="text-sm font-semibold">Paid in full</span>
                 </label>
               )}
+            </div>
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-medium text-gray-700">Ad source</p>
+              <input type="hidden" {...register("adSource")} />
+              <AdSourcePicker
+                value={(adSource as AdSource | "") ?? ""}
+                disabled={adSourceLocked}
+                onChange={(next) => setValue("adSource", next, { shouldDirty: true })}
+              />
             </div>
           </section>
 

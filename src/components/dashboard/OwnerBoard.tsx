@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/utils";
 import { TRACKING_RELIABLE_LABEL, type OwnerSnapshot, type SourceRow } from "@/lib/owner-metrics";
 
 type CostChoice = "mix" | "all" | ExpenseType;
+type AdChoice = "all" | "meta" | "google";
 
 const COST_OPTIONS: { id: CostChoice; label: string }[] = [
   { id: "mix", label: "Gas, bleach, and ads" },
@@ -14,10 +15,71 @@ const COST_OPTIONS: { id: CostChoice; label: string }[] = [
   ...EXPENSE_TYPES.map((type) => ({ id: type, label: type })),
 ];
 
+const AD_OPTIONS: { id: AdChoice; label: string }[] = [
+  { id: "meta", label: "Meta Ads" },
+  { id: "google", label: "Google Ads" },
+  { id: "all", label: "All ads" },
+];
+
+const NET_VS_AD_OPTIONS: { id: AdChoice; label: string }[] = [
+  { id: "all", label: "Net vs all ads" },
+  { id: "meta", label: "Net vs Meta Ads" },
+  { id: "google", label: "Net vs Google Ads" },
+];
+
+function InsightSelect<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: { id: T; label: string }[];
+}) {
+  return (
+    <label className="relative block">
+      <span className="sr-only">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as T)}
+        className="w-full cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white py-1.5 pr-7 pl-2.5 text-[13px] font-medium text-gray-950 outline-none"
+      >
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
+    </label>
+  );
+}
+
 function costAmount(snapshot: OwnerSnapshot, choice: CostChoice): number {
   if (choice === "mix") return snapshot.materials + snapshot.adSpend;
   if (choice === "all") return snapshot.expensesByType.reduce((sum, slice) => sum + slice.amount, 0);
   return snapshot.expensesByType.find((slice) => slice.type === choice)?.amount ?? 0;
+}
+
+function adSlice(snapshot: OwnerSnapshot, choice: AdChoice): { spend: number; revenue: number } {
+  if (choice === "meta") return { spend: snapshot.metaAdSpend, revenue: snapshot.metaAdRevenue };
+  if (choice === "google") return { spend: snapshot.googleAdSpend, revenue: snapshot.googleAdRevenue };
+  return { spend: snapshot.adSpend, revenue: snapshot.adRevenue };
+}
+
+function adWarnings(choice: AdChoice, earlyTracking: boolean): string[] {
+  const notes: string[] = [];
+  if (choice === "all" || choice === "google") {
+    notes.push("Google Ads jobs are not tracked automatically yet, so this number is incomplete.");
+  }
+  if ((choice === "all" || choice === "meta") && earlyTracking) {
+    notes.push(
+      `Meta tracking started after ${TRACKING_RELIABLE_LABEL}. Numbers from before that are incomplete.`
+    );
+  }
+  return notes;
 }
 
 function sourceDetail(row: SourceRow): string {
@@ -39,18 +101,25 @@ export default function OwnerBoard({
   snapshot,
   leadsReady,
   part,
+  net = null,
 }: {
   snapshot: OwnerSnapshot | null;
   leadsReady: boolean;
   part: "money" | "sources";
+  net?: number | null;
 }) {
   const [costChoice, setCostChoice] = useState<CostChoice>("mix");
+  const [adChoice, setAdChoice] = useState<AdChoice>("meta");
+  const [netVsAdChoice, setNetVsAdChoice] = useState<AdChoice>("all");
   const sources = snapshot
     ? [...snapshot.sources].sort((a, b) => b.jobTotal - a.jobTotal || b.inquiries - a.inquiries)
     : [];
   const houses = snapshot ? snapshot.firstTimeJobs + snapshot.repeatJobs : 0;
-  const adMultiple =
-    snapshot && snapshot.adSpend > 0 ? snapshot.adRevenue / snapshot.adSpend : null;
+  const ads = snapshot ? adSlice(snapshot, adChoice) : { spend: 0, revenue: 0 };
+  const netVsAds = snapshot ? adSlice(snapshot, netVsAdChoice) : { spend: 0, revenue: 0 };
+  const adMultiple = ads.spend > 0 ? ads.revenue / ads.spend : null;
+  const periodNetMultiple = netVsAds.spend > 0 && net !== null ? net / netVsAds.spend : null;
+  const adNotes = snapshot ? adWarnings(adChoice, snapshot.earlyTracking) : [];
   const jobCost = snapshot ? costAmount(snapshot, costChoice) : 0;
   const jobCostPerJob =
     snapshot && snapshot.completedJobs > 0 ? jobCost / snapshot.completedJobs : null;
@@ -59,34 +128,63 @@ export default function OwnerBoard({
     if (!snapshot) return <p className="text-sm text-gray-500">Loading expenses…</p>;
     return (
       <div className="overflow-hidden rounded-2xl border border-gray-200">
-        <div className="grid grid-cols-1 sm:grid-cols-2">
-          <div className="min-w-0 border-b border-gray-100 px-4 py-3.5 sm:border-r sm:border-b-0">
-            <p className="text-[13px] leading-snug text-gray-500">{adMultiple === null ? "Ad spend" : "Ad return"}</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-gray-950">
-              {adMultiple === null ? money(snapshot.adSpend) : `${adMultiple.toFixed(1)}×`}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="min-w-0 border-b border-gray-100 px-4 py-3.5 sm:border-r lg:border-b-0">
+            <InsightSelect
+              label="Ad return source"
+              value={adChoice}
+              onChange={setAdChoice}
+              options={AD_OPTIONS}
+            />
+            <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight text-gray-950">
+              {adMultiple === null ? money(ads.spend) : `${adMultiple.toFixed(1)}×`}
             </p>
             {adMultiple !== null ? (
               <p className="mt-2 text-xs leading-snug text-gray-400">
-                {money(snapshot.adSpend)} spent · {money(snapshot.adRevenue)} in jobs
+                {money(ads.spend)} spent · {money(ads.revenue)} in jobs
+              </p>
+            ) : ads.revenue > 0 ? (
+              <p className="mt-2 text-xs leading-snug text-gray-400">
+                {money(ads.revenue)} in jobs · no spend in notes
+              </p>
+            ) : null}
+            {adNotes.length > 0 ? (
+              <div className="mt-2.5 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2">
+                {adNotes.map((note) => (
+                  <p key={note} className="text-xs leading-snug text-amber-900">
+                    {note}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <div className="min-w-0 border-b border-gray-100 px-4 py-3.5 lg:border-r lg:border-b-0">
+            <InsightSelect
+              label="Net versus ad spend"
+              value={netVsAdChoice}
+              onChange={setNetVsAdChoice}
+              options={NET_VS_AD_OPTIONS}
+            />
+            <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight text-gray-950">
+              {periodNetMultiple === null
+                ? net === null
+                  ? "—"
+                  : money(net)
+                : `${periodNetMultiple.toFixed(1)}×`}
+            </p>
+            {net !== null ? (
+              <p className="mt-2 text-xs leading-snug text-gray-400">
+                {money(netVsAds.spend)} ads · {money(net)} net this period
               </p>
             ) : null}
           </div>
-          <div className="min-w-0 px-4 py-3.5">
-            <label className="relative block">
-              <span className="sr-only">Costs counted per job</span>
-              <select
-                value={costChoice}
-                onChange={(event) => setCostChoice(event.target.value as CostChoice)}
-                className="w-full cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white py-1.5 pr-7 pl-2.5 text-[13px] font-medium text-gray-950 outline-none"
-              >
-                {COST_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
-            </label>
+          <div className="min-w-0 px-4 py-3.5 sm:col-span-2 lg:col-span-1">
+            <InsightSelect
+              label="Costs counted per job"
+              value={costChoice}
+              onChange={setCostChoice}
+              options={COST_OPTIONS}
+            />
             <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight text-gray-950">
               {jobCostPerJob === null ? (
                 money(jobCost)

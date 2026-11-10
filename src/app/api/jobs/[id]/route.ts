@@ -50,7 +50,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return apiError(parsed.error.issues[0]?.message ?? "Invalid data");
     }
 
-    const { customerId, customer, ...jobData } = parsed.data;
+    const { customerId, customer, adSource, ...jobData } = parsed.data;
 
     const existingJob = await Job.findById(id);
     if (!existingJob) {
@@ -83,6 +83,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ...jobData,
       jobDate: parseJobDateOnly(jobData.jobDate),
     };
+
+    if (Object.prototype.hasOwnProperty.call(body, "adSource")) {
+      if (adSource) {
+        updateData.adSource = adSource;
+      } else {
+        updateData.$unset = { adSource: 1 };
+      }
+    }
 
     if (customerId) {
       updateData.customer = customerId;

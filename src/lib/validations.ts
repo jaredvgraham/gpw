@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { JOB_STATUSES } from "@/lib/constants";
+import { AD_SOURCES, adSpendPlatform } from "@/lib/ad-source";
+import { EXPENSE_PAYERS, EXPENSE_TYPES } from "@/lib/expenses";
 import { timeToMinutes } from "@/lib/job-scheduling";
 
 export const customerSchema = z.object({
@@ -37,6 +39,10 @@ export const jobSchema = z
     paid: z.boolean().default(false),
     internalNotes: z.string().optional(),
     photoNotes: z.string().optional(),
+    adSource: z.preprocess(
+      (val) => (val === "" || val === null ? undefined : val),
+      z.enum(AD_SOURCES).optional()
+    ),
   })
   .refine((data) => timeToMinutes(data.endTime) > timeToMinutes(data.startTime), {
     message: "End time must be after start time",
@@ -58,6 +64,26 @@ export const jobSchema = z
       path: ["services"],
     }
   );
+
+export const expenseSchema = z
+  .object({
+    type: z.enum(EXPENSE_TYPES),
+    paidBy: z.enum(EXPENSE_PAYERS),
+    amount: z.preprocess(
+      (val) => {
+        if (val === "" || val === undefined || val === null) return undefined;
+        const num = Number(val);
+        return Number.isNaN(num) ? undefined : num;
+      },
+      z.number({ message: "Amount is required" }).min(0, "Amount cannot be negative"),
+    ),
+    date: z.string().min(1, "Date is required"),
+    note: z.string().trim().optional(),
+  })
+  .refine((data) => data.type !== "Ads" || Boolean(adSpendPlatform(data.note)), {
+    message: "Write Meta or Google in the note.",
+    path: ["note"],
+  });
 
 export const serviceSchema = z.object({
   name: z.string().min(1, "Service name is required"),
