@@ -12,6 +12,7 @@ import QuarterlyChart from "@/components/dashboard/QuarterlyChart";
 import InsightsBreadcrumb from "@/components/dashboard/InsightsBreadcrumb";
 import GrossNetSection from "@/components/dashboard/GrossNetSection";
 import OwnerBoard from "@/components/dashboard/OwnerBoard";
+import JobCalculator from "@/components/dashboard/JobCalculator";
 import {
   MonthNavigator,
   PeriodViewToggle,
@@ -35,12 +36,13 @@ import { computeOwnerSnapshot } from "@/lib/owner-metrics";
 import { isPaintOnlyJob } from "@/lib/paint-jobs";
 import type { Expense, Lead } from "@/types";
 
-type ReportLens = "money" | "sources" | "jobs";
+type ReportLens = "money" | "sources" | "jobs" | "calculator";
 
 const REPORT_LENSES: { id: ReportLens; label: string }[] = [
   { id: "money", label: "Finances" },
   { id: "sources", label: "Sources" },
   { id: "jobs", label: "Jobs" },
+  { id: "calculator", label: "Calculator" },
 ];
 
 export default function DashboardPage() {
@@ -114,6 +116,13 @@ export default function DashboardPage() {
         : null,
     [jobs, leads, expenses, expensesReady, leadsReady, profitRange]
   );
+
+  useEffect(() => {
+    document.documentElement.dataset.reportLens = lens;
+    return () => {
+      delete document.documentElement.dataset.reportLens;
+    };
+  }, [lens]);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,9 +350,9 @@ export default function DashboardPage() {
 
   return (
     <div className="phone-nav-inset flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
-      <div className="max-md:contents md:mb-6 md:shrink-0 md:space-y-3 md:border-b md:border-black/6 md:pb-4">
+      <div className={`max-md:contents md:mb-6 md:shrink-0 md:space-y-3 md:border-b md:border-black/6 md:pb-4 ${lens === "calculator" ? "calculator-tabs" : ""}`}>
         <div
-          className="sticky top-0 z-20 mb-3 grid grid-cols-3 gap-1 border-b border-black/6 bg-white px-4 py-2 md:static md:mb-0 md:flex md:items-center md:gap-2 md:border-0 md:bg-transparent md:px-0 md:py-0"
+          className="sticky top-0 z-20 mb-3 grid grid-cols-4 gap-1 border-b border-black/6 bg-white px-4 py-2 md:static md:mb-0 md:flex md:items-center md:gap-2 md:border-0 md:bg-transparent md:px-0 md:py-0"
           role="tablist"
           aria-label="Report"
         >
@@ -354,7 +363,7 @@ export default function DashboardPage() {
               role="tab"
               aria-selected={lens === item.id}
               onClick={() => setLens(item.id)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+              className={`rounded-full px-2 py-1.5 text-[13px] font-semibold transition-colors md:px-3.5 md:text-sm ${
                 lens === item.id
                   ? "bg-brand-black text-white"
                   : "text-gray-500 hover:text-brand-black"
@@ -365,12 +374,12 @@ export default function DashboardPage() {
           ))}
           <Link
             href="/simulation"
-            className="col-span-3 mt-1 justify-self-center py-1 text-[13px] text-gray-500 transition-colors hover:text-gray-950 md:col-auto md:ml-4 md:mt-0 md:justify-self-auto"
+            className="col-span-4 mt-1 justify-self-center py-1 text-[13px] text-gray-500 transition-colors hover:text-gray-950 md:col-auto md:ml-4 md:mt-0 md:justify-self-auto"
           >
             Simulation <span aria-hidden>→</span>
           </Link>
         </div>
-        <div className="mb-6 flex flex-col gap-3 px-4 sm:flex-row sm:flex-wrap sm:items-center md:mb-0 md:px-0">
+        {lens !== "calculator" && <div className="mb-6 flex flex-col gap-3 px-4 sm:flex-row sm:flex-wrap sm:items-center md:mb-0 md:px-0">
           <InsightsBreadcrumb
             view={view}
             year={selectedYear}
@@ -399,10 +408,13 @@ export default function DashboardPage() {
               setRangeEnd(end);
             }} />
           )}
-        </div>
+        </div>}
       </div>
 
-      <div className="min-w-0 px-4 md:min-h-0 md:flex-1 md:overflow-x-hidden md:overflow-y-auto md:px-0">
+      <div className={lens === "calculator"
+        ? "calculator-stage flex min-h-0 min-w-0 flex-1 flex-col px-4 md:overflow-hidden md:px-0"
+        : "min-w-0 px-4 md:min-h-0 md:flex-1 md:overflow-x-hidden md:overflow-y-auto md:px-0"}>
+        {lens === "calculator" && <JobCalculator />}
         {lens === "money" && (
           <div className="grid min-w-0 items-start gap-10 lg:grid-cols-2">
             <div className="min-w-0">

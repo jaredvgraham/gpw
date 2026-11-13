@@ -41,7 +41,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar currentPath={pathname} />
         <div className="flex flex-1 flex-col min-h-0 min-w-0 max-md:overflow-hidden">
           <main
-            className={`flex-1 flex flex-col min-h-0 min-w-0 ${
+            className={`app-main flex-1 flex flex-col min-h-0 min-w-0 ${
               isCalendar
                 ? showBottomNav
                   ? "max-md:overflow-hidden calendar-bottom-nav-inset"
@@ -52,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             }`}
           >
             {!isCalendar && (
-              <div className="md:hidden shrink-0">
+              <div className="duo-phone-chrome md:hidden shrink-0">
                 <MobileHeader
                   onMenuOpen={() => setMenuOpen(true)}
                   variant={isToday ? "itinerary" : "default"}
@@ -73,7 +73,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   : isToday
                     ? "flex-1 flex flex-col min-h-0 overflow-auto bg-[#f4f5f7] px-4 pt-0 pb-4 md:overflow-hidden md:bg-transparent md:p-6 md:pt-6 md:pb-6"
                     : isDashboard
-                      ? "flex flex-col bg-white px-0 pt-0 pb-4 md:min-h-0 md:flex-1 md:overflow-hidden md:px-8 md:py-6"
+                      ? "dashboard-frame flex flex-col bg-white px-0 pt-0 pb-4 md:min-h-0 md:flex-1 md:overflow-hidden md:px-8 md:py-6"
                       : "p-4 md:p-8 pt-0 md:pt-8 pb-4 md:pb-8"
               }
             >
@@ -82,7 +82,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   isCalendar
                     ? "flex-1 flex flex-col min-h-0 overflow-hidden"
                     : isDashboard
-                      ? "flex flex-col md:min-h-0 md:flex-1"
+                      ? "dashboard-body flex flex-col md:min-h-0 md:flex-1"
                       : isToday
                         ? "md:flex md:h-full md:min-h-0 md:flex-1 md:flex-col"
                         : ""

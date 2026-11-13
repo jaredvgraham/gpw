@@ -2,9 +2,16 @@
 
 /* A real desktop is wide and tall, or wide with a mouse.
    An unfolded Duo held sideways is wide, short, and touch-only, so `md` stays off
-   and the phone layout is used instead. Keep this in sync with useLayoutMode. */
+   and the phone layout is used instead. The calculator opts back into a fitted
+   desktop arrangement with `duo`. Keep this in sync with useLayoutMode. */
 @custom-variant md {
   @media (width >= 768px) and (height >= 801px), (width >= 768px) and (pointer: fine) {
+    @slot;
+  }
+}
+
+@custom-variant duo {
+  @media (width >= 768px) and (height <= 800px) and (pointer: coarse) {
     @slot;
   }
 }
@@ -747,6 +754,62 @@ body {
 
   .main-with-bottom-nav {
     scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);
+  }
+}
+
+/* Calculator on a sideways Duo: the desktop arrangement, fitted to a short screen.
+   The phone header and bottom nav stay for the other report tabs. */
+@media (width >= 768px) and (height <= 800px) and (pointer: coarse) {
+  html[data-report-lens="calculator"] .duo-phone-chrome {
+    display: none;
+  }
+
+  html[data-report-lens="calculator"] .app-main {
+    overflow: hidden;
+  }
+
+  html[data-report-lens="calculator"] .dashboard-frame {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.5rem 0.75rem 0.5rem;
+  }
+
+  html[data-report-lens="calculator"] .dashboard-body {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  html[data-report-lens="calculator"] .phone-nav-inset {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+
+  html[data-report-lens="calculator"] .calculator-tabs {
+    display: flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    margin-bottom: 0.5rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-tabs > [role="tablist"] {
+    position: static;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  html[data-report-lens="calculator"] .calculator-stage {
+    overflow: hidden;
+    padding-left: 0;
+    padding-right: 0;
   }
 }
 

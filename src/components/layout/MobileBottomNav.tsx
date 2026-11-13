@@ -25,7 +25,7 @@ export default function MobileBottomNav() {
   }
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] md:hidden">
+    <nav className="duo-phone-chrome fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] md:hidden">
       <div className="flex items-end justify-around px-1 pb-0.5 pt-2">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
