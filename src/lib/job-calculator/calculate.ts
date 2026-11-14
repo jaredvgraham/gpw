@@ -57,7 +57,6 @@ export function effectiveWeeklyPayroll(scenario: Scenario, truck?: Truck): Cents
   return exp.amount;
 }
 
-/** Resolves the effective amount for an expense applied to a given truck. */
 function effectiveAmount(scenario: Scenario, expense: Expense, truck: Truck | null): number | null {
   if (expense.status !== "configured") return null;
   if (truck) {

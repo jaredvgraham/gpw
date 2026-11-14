@@ -2,10 +2,11 @@
 
 /* A real desktop is wide and tall, or wide with a mouse.
    An unfolded Duo held sideways is wide, short, and touch-only, so `md` stays off
-   and the phone layout is used instead. The calculator opts back into a fitted
-   desktop arrangement with `duo`. Keep this in sync with useLayoutMode. */
+   and the phone layout is used instead. The calculator crunches into that
+   screen with `duo`. Keep this in sync with useLayoutMode. */
 @custom-variant md {
-  @media (width >= 768px) and (height >= 801px), (width >= 768px) and (pointer: fine) {
+  @media (width >= 768px) and (height >= 801px),
+    (width >= 768px) and (pointer: fine) {
     @slot;
   }
 }
@@ -517,7 +518,10 @@ body {
   min-height: 6rem;
 }
 
-.calendar-container .fc-multimonth .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+.calendar-container
+  .fc-multimonth
+  .fc-daygrid-day.fc-day-today
+  .fc-daygrid-day-number {
   width: 1.25rem;
   height: 1.25rem;
   padding: 0;
@@ -539,7 +543,9 @@ body {
   line-height: 1.2;
   padding: 3px 4px;
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
 .calendar-container .gpw-view-day-btn:hover {
@@ -675,7 +681,9 @@ body {
     padding: 0 3px;
   }
 
-  .calendar-mobile .fc-daygrid-day.gpw-mobile-day-cell:active .fc-daygrid-day-frame {
+  .calendar-mobile
+    .fc-daygrid-day.gpw-mobile-day-cell:active
+    .fc-daygrid-day-frame {
     background: #f3f4f6;
   }
 
@@ -749,16 +757,20 @@ body {
 @media (width < 768px), (height <= 800px) and (pointer: coarse) {
   .calendar-bottom-nav-inset,
   .phone-nav-inset {
-    padding-bottom: calc(3.25rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
+    padding-bottom: calc(
+      3.25rem + max(0.5rem, env(safe-area-inset-bottom, 0px))
+    );
   }
 
   .main-with-bottom-nav {
-    scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);
+    scroll-padding-bottom: calc(
+      5.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem
+    );
   }
 }
 
-/* Calculator on a sideways Duo: the desktop arrangement, fitted to a short screen.
-   The phone header and bottom nav stay for the other report tabs. */
+/* Calculator on a sideways Duo: no phone chrome, and the inputs and cards
+   are packed so the whole calculator fits the short screen. duo-crunch */
 @media (width >= 768px) and (height <= 800px) and (pointer: coarse) {
   html[data-report-lens="calculator"] .duo-phone-chrome {
     display: none;
@@ -810,6 +822,118 @@ body {
     overflow: hidden;
     padding-left: 0;
     padding-right: 0;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.2rem 0.45rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields > label {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields > label > span {
+    min-width: 0;
+    flex: 1 1 auto;
+    font-size: 9px;
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields > label > .number-notch {
+    width: auto;
+    flex: none;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields > label > input,
+  html[data-report-lens="calculator"] .calculator-fields > label > .relative {
+    flex: 0 0 4.25rem;
+    width: 4.25rem;
+    min-width: 4.25rem;
+    max-width: 4.25rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields > label > .relative input {
+    width: 100%;
+    min-width: 0;
+    padding-left: 0.85rem;
+    padding-right: 0.1rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields > label > .relative > span {
+    left: 0.3rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields input,
+  html[data-report-lens="calculator"] .number-notch button {
+    height: 1.625rem;
+    font-size: 12px;
+  }
+
+  html[data-report-lens="calculator"] .number-notch button {
+    width: 1.15rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-fields .number-notch input {
+    width: 1.6rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  html[data-report-lens="calculator"] .calculator-profit {
+    gap: 0.75rem;
+    padding: 0.3rem 0.6rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-profit .text-3xl {
+    font-size: 1.5rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-cards {
+    gap: 0.35rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-card {
+    min-height: 0;
+    padding: 0.3rem 0.45rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-card h3 {
+    font-size: 12px;
+  }
+
+  html[data-report-lens="calculator"] .calculator-card input,
+  html[data-report-lens="calculator"] .calculator-card .number-notch button {
+    height: 1.5rem;
+    font-size: 12px;
+  }
+
+  html[data-report-lens="calculator"] .calculator-card .number-notch button {
+    width: 1.1rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-card .number-notch input {
+    width: 1.45rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-card table {
+    height: auto;
+    font-size: 11px;
+  }
+
+  html[data-report-lens="calculator"] .calculator-card th,
+  html[data-report-lens="calculator"] .calculator-card td {
+    padding-top: 0.1rem;
+    padding-bottom: 0.1rem;
+  }
+
+  html[data-report-lens="calculator"] .calculator-season {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 12px;
   }
 }
 
@@ -865,12 +989,19 @@ summary {
   user-select: none;
 }
 
-:is(a, button, [role="button"], summary, .fc-daygrid-day, .fc-list-event, .fc-event):is(
-    :active,
-    [data-pressed],
-    [data-pending]
-  ) {
-  background-image: linear-gradient(rgba(17, 24, 39, 0.16), rgba(17, 24, 39, 0.16)) !important;
+:is(
+  a,
+  button,
+  [role="button"],
+  summary,
+  .fc-daygrid-day,
+  .fc-list-event,
+  .fc-event
+):is(:active, [data-pressed], [data-pending]) {
+  background-image: linear-gradient(
+    rgba(17, 24, 39, 0.16),
+    rgba(17, 24, 39, 0.16)
+  ) !important;
   transition: none !important;
 }
 
@@ -880,7 +1011,8 @@ summary {
   }
 }
 
-html[data-touch] :is(button, [role="button"], summary):is(:active, [data-pressed]) {
+html[data-touch]
+  :is(button, [role="button"], summary):is(:active, [data-pressed]) {
   transform: scale(0.97);
 }
 
@@ -922,7 +1054,9 @@ button[data-pending="busy"]::after {
 
 /* iOS Safari zooms focused inputs below 16px — keep form fields at 1rem on mobile */
 @media (max-width: 767px) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(
+      [type="range"]
+    ),
   select,
   textarea {
     font-size: 1rem;

@@ -34,10 +34,16 @@ export interface CalculatorInput {
   rentPerMonth: Cents | null;
   /**
    * Jobs per day for each owner-operated truck, in fleet order.
-   * With two or more owners these replace the shared jobs-per-day.
-   * A single owner follows `jobsPerDay`.
+   * Used when an owner truck can differ from the shared jobs-per-day
+   * (two or more owners, or one owner beside a hired crew).
    */
   ownerJobsPerDay: number[];
+  /**
+   * Jobs per day for each hired truck, in fleet order.
+   * With two or more hired trucks these replace the shared jobs-per-day.
+   * A single hired truck follows `jobsPerDay`.
+   */
+  hiredJobsPerDay: number[];
 }
 
 function expense(s: Scenario, key: string): Expense | undefined {
@@ -86,6 +92,9 @@ export function readCalculator(s: Scenario): CalculatorInput {
     rentPerMonth: rent?.frequency === "monthly" ? configuredAmount(rent) : null,
     ownerJobsPerDay: s.trucks
       .filter((t) => t.operator === "owner")
+      .map((t) => (t.overrides.jobsPerDay != null ? t.overrides.jobsPerDay : jobs)),
+    hiredJobsPerDay: s.trucks
+      .filter((t) => t.operator === "hired")
       .map((t) => (t.overrides.jobsPerDay != null ? t.overrides.jobsPerDay : jobs)),
   };
 }
@@ -139,16 +148,22 @@ export function applyCalculator(s: Scenario, input: CalculatorInput): Scenario {
   }
   next.labor.payrollModel = "fixed_weekly";
 
-  // Per-truck weekly overrides would silently replace the numbers in these boxes.
-  // Two or more owner trucks can each keep their own jobs per day.
+  // Owner trucks and hired trucks can each keep their own jobs per day
+  // once that truck can differ from another one.
   const ownerCount = trucks - hired;
-  const splitOwners = ownerCount >= 2;
+  const ownJobs = ownerCount >= 2 || (ownerCount === 1 && hired > 0);
+  const hiredOwn = hired >= 2;
   const ownerJobs = input.ownerJobsPerDay ?? [];
+  const hiredJobs = input.hiredJobsPerDay ?? [];
   let ownerIndex = 0;
+  let hiredIndex = 0;
   next.trucks = next.trucks.map((t) => {
     let jobsPerDay: number | null = null;
-    if (t.operator === "owner" && splitOwners) {
+    if (t.operator === "owner" && ownJobs) {
       const typed = ownerJobs[ownerIndex++];
+      jobsPerDay = Math.max(0, Math.min(20, typed != null ? typed : jobs));
+    } else if (t.operator === "hired" && hiredOwn) {
+      const typed = hiredJobs[hiredIndex++];
       jobsPerDay = Math.max(0, Math.min(20, typed != null ? typed : jobs));
     }
     return {

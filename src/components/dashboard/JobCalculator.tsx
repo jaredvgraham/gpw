@@ -137,40 +137,75 @@ function NumberInput({
     setLastValue(value);
     if (!focused) setText(String(value));
   }
+  const clamp = (n: number) => {
+    if (min != null) n = Math.max(min, n);
+    if (max != null) n = Math.min(max, n);
+    return n;
+  };
   const commitLive = (raw: string) => {
     const cleaned = raw.replace(/[,%\s]/g, "");
     if (cleaned === "") return;
-    let n = parseFloat(cleaned);
+    const n = parseFloat(cleaned);
     if (!Number.isFinite(n)) return;
-    if (min != null) n = Math.max(min, n);
-    if (max != null) n = Math.min(max, n);
-    onChange(n);
+    onChange(clamp(n));
   };
+  const notch = (dir: -1 | 1) => {
+    const base = Number.isFinite(value) ? value : min ?? 0;
+    const n = clamp(Math.round(base) + dir);
+    onChange(n);
+    setText(String(n));
+  };
+  const atMin = min != null && value <= min;
+  const atMax = max != null && value >= max;
   return (
-    <input
-      type="text"
-      inputMode="decimal"
-      value={text}
-      onChange={(e) => {
-        setText(e.target.value);
-        commitLive(e.target.value);
-      }}
-      onFocus={() => setFocused(true)}
-      onBlur={() => {
-        setFocused(false);
-        const cleaned = text.replace(/[,%\s]/g, "");
-        if (cleaned === "" || !Number.isFinite(parseFloat(cleaned))) {
-          setText(String(value));
-          return;
-        }
-        let n = parseFloat(cleaned);
-        if (min != null) n = Math.max(min, n);
-        if (max != null) n = Math.min(max, n);
-        onChange(n);
-        setText(String(n));
-      }}
-      className={cx(fieldClass, "h-9 px-2 text-sm", className)}
-    />
+    <div className="number-notch flex items-center gap-0.5">
+      <button
+        type="button"
+        aria-label="Decrease"
+        disabled={atMin}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => notch(-1)}
+        className="flex h-9 w-6 shrink-0 items-center justify-center rounded-md border border-brand-border bg-white text-sm leading-none text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+      >
+        −
+      </button>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          commitLive(e.target.value);
+        }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false);
+          const cleaned = text.replace(/[,%\s]/g, "");
+          if (cleaned === "" || !Number.isFinite(parseFloat(cleaned))) {
+            setText(String(value));
+            return;
+          }
+          const n = clamp(parseFloat(cleaned));
+          onChange(n);
+          setText(String(n));
+        }}
+        className={cx(
+          "w-8 shrink-0 rounded-lg border border-brand-border bg-white text-center text-brand-black tabular-nums outline-none transition focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20",
+          "h-9 px-0.5 text-sm",
+          className,
+        )}
+      />
+      <button
+        type="button"
+        aria-label="Increase"
+        disabled={atMax}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => notch(1)}
+        className="flex h-9 w-6 shrink-0 items-center justify-center rounded-md border border-brand-border bg-white text-sm leading-none text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+      >
+        +
+      </button>
+    </div>
   );
 }
 
@@ -186,47 +221,6 @@ function companyLine(r: Results, key: string): number {
   return r.lines.filter((l) => l.catalogKey === key).reduce((sum, l) => sum + l.total, 0);
 }
 
-function YearStack({ form, results, otherCosts }: { form: CalculatorInput; results: Results; otherCosts: number }) {
-  const jobs = results.meta.totalJobs ?? 0;
-  const hired = form.hiredTrucks;
-  const owners = form.trucks - hired;
-  const weeks = results.meta.weeksPerMonthAvg;
-  const lines: { label: string; amount: number; how: string }[] = [];
-  lines.push({
-    label: "Customers pay",
-    amount: results.totals.revenue,
-    how: form.ticket != null && jobs > 0 ? `${fmtMoneyExact(form.ticket)} × ${fmtCount(jobs)} jobs across ${form.trucks} truck${form.trucks === 1 ? "" : "s"}` : "Enter a price per job",
-  });
-  const pushCost = (label: string, amount: number, how: string) => {
-    if (amount > 0) lines.push({ label, amount: -amount, how });
-  };
-  pushCost("Chemicals & supplies", companyLine(results, "bleach"), form.suppliesPerJob != null ? `${fmtMoneyExact(form.suppliesPerJob)} per job × ${fmtCount(jobs)} jobs` : "Per job");
-  pushCost(form.trucks === 1 ? "Fuel" : `Fuel · ${form.trucks} trucks`, companyLine(results, "truck_fuel"), form.fuelPerDay != null ? `${fmtMoneyExact(form.fuelPerDay)} a day per truck × ${form.daysPerWeek} days × ${weeks.toFixed(2)} weeks × ${form.months} months × ${form.trucks} trucks` : "Per truck, per day");
-  pushCost(hired === 1 ? "Crew payroll" : `Crew payroll · ${hired} hired trucks`, companyLine(results, "crew_payroll"), form.payrollPerDay != null ? `${fmtMoneyExact(form.payrollPerDay)} a day per hired truck × ${form.daysPerWeek} days × ${weeks.toFixed(2)} weeks × ${form.months} months × ${hired} hired truck${hired === 1 ? "" : "s"}` : "Per hired truck");
-  pushCost(owners === 1 ? "Your pay" : `Your pay · ${owners} trucks`, companyLine(results, "owner_compensation"), form.ownerPayPerDay != null ? `${fmtMoneyExact(form.ownerPayPerDay)} a day per truck you drive × ${form.daysPerWeek} days × ${weeks.toFixed(2)} weeks × ${form.months} months × ${owners} truck${owners === 1 ? "" : "s"}` : "Per truck you drive");
-  pushCost(form.trucks === 1 ? "Advertising" : `Advertising · ${form.trucks} trucks`, companyLine(results, "advertising"), form.adsPerWeek != null ? `${fmtMoneyExact(form.adsPerWeek)} a week per truck × ${weeks.toFixed(2)} weeks × ${form.months} months × ${form.trucks} trucks` : "Per truck, per week");
-  pushCost(form.trucks === 1 ? "Truck insurance" : `Truck insurance · ${form.trucks} trucks`, companyLine(results, "truck_insurance"), form.insurancePerMonth != null ? `${fmtMoneyExact(form.insurancePerMonth)} a month per truck × 12 months × ${form.trucks} trucks` : "Per truck, every month");
-  pushCost("Rent · company", companyLine(results, "rent"), form.rentPerMonth != null ? `${fmtMoneyExact(form.rentPerMonth)} a month × 12 months, once for the company` : "Once for the company");
-  if (otherCosts > 0) pushCost("Other costs already saved", otherCosts, "Entered outside this calculator");
-  lines.push({ label: "Profit", amount: results.totals.operatingProfit, how: `${fmtMoney(results.totals.revenue)} in − ${fmtMoney(results.totals.operatingExpenses)} out` });
-
-  return (
-    <div className="flex flex-col flex-1 justify-between min-h-0">
-      {lines.map((line, i) => {
-        const last = i === lines.length - 1;
-        return (
-          <div key={line.label} title={line.how} className={cx("flex items-baseline justify-between gap-3 py-1", last && "border-t border-brand-border mt-1 pt-2")}>
-            <div className={cx("text-sm truncate", last ? "font-semibold text-brand-black" : "text-gray-600")}>{line.label}</div>
-            <div className={cx("tabular-nums text-sm shrink-0", last ? cx("font-semibold", line.amount >= 0 ? "text-green-600" : "text-brand-red") : line.amount < 0 ? "text-brand-red" : "text-brand-blue")}>
-              {line.amount < 0 ? `−${fmtMoneyExact(-line.amount)}` : fmtMoneyExact(line.amount)}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function fmtCount(n: number): string {
   const digits = Math.abs(n - Math.round(n)) < 0.05 ? 0 : 1;
   return fmtNum(n, digits);
@@ -239,14 +233,16 @@ interface Slice {
   chem: number;
   fuel: number;
   payroll: number;
+  ownerPay: number;
   ads: number;
   insurance: number;
+  rent: number;
   other: number;
   profit: number;
 }
 
 function sliceOf(partial: Omit<Slice, "other" | "profit"> & { costs: number; profit: number }): Slice {
-  const known = partial.chem + partial.fuel + partial.payroll + partial.ads + partial.insurance;
+  const known = partial.chem + partial.fuel + partial.payroll + partial.ownerPay + partial.ads + partial.insurance + partial.rent;
   return { ...partial, other: partial.costs - known };
 }
 
@@ -260,14 +256,14 @@ function monthSlice(truck: TruckResult, form: CalculatorInput, jobsPerDay: numbe
   const days = jobsPerDay > 0 ? jobs / jobsPerDay : 0;
   const chem = form.suppliesPerJob != null ? mul(form.suppliesPerJob, jobs) : 0;
   const fuel = form.fuelPerDay != null ? mul(form.fuelPerDay * form.daysPerWeek, weeks) : 0;
-  const dayRate = hired ? form.payrollPerDay : form.ownerPayPerDay;
-  const payroll = dayRate != null ? mul(dayRate * form.daysPerWeek, weeks) : 0;
+  const payroll = hired && form.payrollPerDay != null ? mul(form.payrollPerDay * form.daysPerWeek, weeks) : 0;
+  const ownerPay = !hired && form.ownerPayPerDay != null ? mul(form.ownerPayPerDay * form.daysPerWeek, weeks) : 0;
   const ads = form.adsPerWeek != null ? mul(form.adsPerWeek, weeks) : 0;
   const insurance = form.insurancePerMonth ?? 0;
   return {
     weeks,
     slice: sliceOf({
-      jobs, days, revenue: month.revenue, chem, fuel, payroll, ads, insurance,
+      jobs, days, revenue: month.revenue, chem, fuel, payroll, ownerPay, ads, insurance, rent: 0,
       costs: month.directOperating, profit: month.contribution,
     }),
   };
@@ -282,8 +278,10 @@ function scale(slice: Slice, divisor: number): Slice {
     chem: each(slice.chem),
     fuel: each(slice.fuel),
     payroll: each(slice.payroll),
+    ownerPay: each(slice.ownerPay),
     ads: each(slice.ads),
     insurance: each(slice.insurance),
+    rent: each(slice.rent),
     other: each(slice.other),
     profit: each(slice.profit),
   };
@@ -293,43 +291,141 @@ function scale(slice: Slice, divisor: number): Slice {
 function seasonSlice(truck: TruckResult, form: CalculatorInput, jobsPerDay: number): Slice {
   const jobs = jobsOf(truck);
   const hired = truck.operator === "hired";
-  const payroll = lineOf(truck, hired ? "crew_payroll" : "owner_compensation");
   return sliceOf({
     jobs,
     days: jobsPerDay > 0 ? jobs / jobsPerDay : 0,
     revenue: truck.revenue,
     chem: lineOf(truck, "bleach"),
     fuel: lineOf(truck, "truck_fuel"),
-    payroll,
+    payroll: hired ? lineOf(truck, "crew_payroll") : 0,
+    ownerPay: hired ? 0 : lineOf(truck, "owner_compensation"),
     ads: lineOf(truck, "advertising"),
     insurance: lineOf(truck, "truck_insurance"),
+    rent: 0,
     costs: truck.directOperating,
     profit: truck.contribution,
   });
 }
 
-const COLS: { key: keyof Slice; label: string; cost?: boolean }[] = [
-  { key: "jobs", label: "Jobs" },
-  { key: "revenue", label: "You charge" },
-  { key: "chem", label: "Chemicals", cost: true },
-  { key: "fuel", label: "Fuel", cost: true },
-  { key: "payroll", label: "Payroll", cost: true },
-  { key: "ads", label: "Advertising", cost: true },
-  { key: "insurance", label: "Insurance", cost: true },
-  { key: "other", label: "Other costs", cost: true },
-  { key: "profit", label: "Profit" },
+function companyMonthSlice(month: Results["months"][number], form: CalculatorInput): Slice {
+  const jobs = month.jobs ?? 0;
+  const days = form.daysPerWeek * month.weeks;
+  const trucks = month.activeTrucks || form.trucks;
+  const hired = Math.min(form.hiredTrucks, trucks);
+  const owners = Math.max(0, trucks - hired);
+  const chem = form.suppliesPerJob != null ? mul(form.suppliesPerJob, jobs) : 0;
+  const fuel = form.fuelPerDay != null ? mul(form.fuelPerDay * form.daysPerWeek * trucks, month.weeks) : 0;
+  const payroll = form.payrollPerDay != null ? mul(form.payrollPerDay * form.daysPerWeek * hired, month.weeks) : 0;
+  const ownerPay = form.ownerPayPerDay != null ? mul(form.ownerPayPerDay * form.daysPerWeek * owners, month.weeks) : 0;
+  const ads = form.adsPerWeek != null ? mul(form.adsPerWeek * trucks, month.weeks) : 0;
+  const insurance = (form.insurancePerMonth ?? 0) * trucks;
+  const rent = form.rentPerMonth ?? 0;
+  return sliceOf({
+    jobs, days, revenue: month.revenue, chem, fuel, payroll, ownerPay, ads, insurance, rent,
+    costs: month.operatingExpenses, profit: month.operatingProfit,
+  });
+}
+
+function companySeasonSlice(preview: Results, form: CalculatorInput): Slice {
+  const jobs = preview.meta.totalJobs ?? 0;
+  return sliceOf({
+    jobs,
+    days: form.daysPerWeek * preview.meta.operatingWeeks,
+    revenue: preview.totals.revenue,
+    chem: companyLine(preview, "bleach"),
+    fuel: companyLine(preview, "truck_fuel"),
+    payroll: companyLine(preview, "crew_payroll"),
+    ownerPay: companyLine(preview, "owner_compensation"),
+    ads: companyLine(preview, "advertising"),
+    insurance: companyLine(preview, "truck_insurance"),
+    rent: companyLine(preview, "rent"),
+    costs: preview.totals.operatingExpenses,
+    profit: preview.totals.operatingProfit,
+  });
+}
+
+type RowKey = "jobs" | "revenue" | "expenses" | "chem" | "fuel" | "payroll" | "ownerPay" | "ads" | "insurance" | "rent" | "other" | "profit";
+
+function expensesOf(slice: Slice): number {
+  return slice.revenue - slice.profit;
+}
+
+function amountOf(key: RowKey, slice: Slice): number {
+  if (key === "expenses") return expensesOf(slice);
+  return slice[key];
+}
+
+const EXPENSE_KEYS: { key: RowKey; label: string }[] = [
+  { key: "chem", label: "Chemicals" },
+  { key: "fuel", label: "Fuel" },
+  { key: "payroll", label: "Payroll" },
+  { key: "ownerPay", label: "Your pay" },
+  { key: "ads", label: "Ads" },
+  { key: "insurance", label: "Insurance" },
+  { key: "rent", label: "Rent" },
+  { key: "other", label: "Other" },
 ];
 
-function cell(key: keyof Slice, slice: Slice): string {
+function cardRows(detail: boolean, columns: { slice: Slice }[]): { key: RowKey; label: string; cost?: boolean }[] {
+  const rows: { key: RowKey; label: string; cost?: boolean }[] = [
+    { key: "jobs", label: "Jobs" },
+    { key: "revenue", label: "You charge" },
+  ];
+  if (!detail) {
+    if (columns.some((c) => Math.abs(expensesOf(c.slice)) >= 1)) rows.push({ key: "expenses", label: "Expenses", cost: true });
+  } else {
+    for (const part of EXPENSE_KEYS) {
+      const meaningful = columns.some((c) => Math.abs(amountOf(part.key, c.slice)) >= (part.key === "other" ? 100 : 1));
+      if (meaningful) rows.push({ ...part, cost: true });
+    }
+  }
+  rows.push({ key: "profit", label: "Profit" });
+  return rows;
+}
+
+function cell(key: RowKey, slice: Slice): string {
   if (key === "jobs") return fmtCount(slice.jobs);
-  const n = slice[key];
+  const n = amountOf(key, slice);
   if (key !== "revenue" && key !== "profit" && n === 0) return "—";
   if (key === "profit") return fmtMoneyExact(n);
   return key === "revenue" ? fmtMoneyExact(n) : `−${fmtMoneyExact(n)}`;
 }
 
+function BreakdownTable({ columns, rows }: { columns: { title: string; slice: Slice }[]; rows: { key: RowKey; label: string; cost?: boolean }[] }) {
+  return (
+    <div className="flex-1 min-h-0 overflow-auto">
+      <table className="w-full text-[13px] tabular-nums">
+        <thead>
+          <tr className="border-b border-brand-border text-xs uppercase tracking-[0.12em] text-gray-500">
+            <th className="text-left py-1.5 pr-2 font-medium" />
+            {columns.map((c) => <th key={c.title} className="text-right py-1.5 px-1.5 font-medium whitespace-nowrap">{c.title}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((col) => (
+            <tr key={col.key} className={cx("border-b border-gray-100", col.key === "profit" && "font-semibold")}>
+              <td className={cx("py-1 pr-2 text-left whitespace-nowrap", col.key === "profit" ? "text-brand-black" : "text-gray-600")}>{col.label}</td>
+              {columns.map((c) => (
+                <td key={c.title} className={cx("text-right py-1 px-1.5 whitespace-nowrap", col.key === "profit" && (c.slice.profit >= 0 ? "text-green-600" : "text-brand-red"), col.cost && "text-brand-red")}>{cell(col.key, c.slice)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function periodColumns(form: CalculatorInput, month: Slice, season: Slice): { title: string; slice: Slice }[] {
+  return [
+    { title: "Per day", slice: scale(month, month.days) },
+    { title: "Per month", slice: month },
+    { title: form.months === 1 ? "1 mo" : `${form.months} mo`, slice: season },
+  ];
+}
+
 function TruckBreakdown({
-  truck, form, count, jobsPerDay, onJobsPerDay, heading,
+  truck, form, count, jobsPerDay, onJobsPerDay, heading, detail,
 }: {
   truck: TruckResult;
   form: CalculatorInput;
@@ -337,53 +433,38 @@ function TruckBreakdown({
   jobsPerDay: number;
   onJobsPerDay?: (n: number) => void;
   heading?: string;
+  detail: boolean;
 }) {
   const month = monthSlice(truck, form, jobsPerDay);
   if (!month) return null;
-  const season = seasonSlice(truck, form, jobsPerDay);
-  const perJob = scale(month.slice, month.slice.jobs);
-  const perDay = scale(month.slice, month.slice.days);
-  const columns = [
-    { title: "One job", slice: perJob },
-    { title: "One day", slice: perDay },
-    { title: "Per month", slice: month.slice },
-    { title: `${form.months} mo`, slice: season },
-  ];
+  const columns = periodColumns(form, month.slice, seasonSlice(truck, form, jobsPerDay));
   const hired = truck.operator === "hired";
-  const visible = COLS.filter((col) => col.key === "jobs" || col.key === "revenue" || col.key === "profit" || columns.some((c) => Math.abs(c.slice[col.key]) >= (col.key === "other" ? 100 : 1)));
   const each = heading ?? (hired ? "Hired truck" : "Truck you drive");
   const title = count > 1 ? `Each ${each.toLowerCase()} · ${count}` : each;
   return (
-    <div className="flex h-full min-h-[220px] min-w-0 flex-col rounded-xl border border-brand-border bg-gray-50 px-3 py-2.5 md:min-h-0 duo:min-h-0 duo:px-2 duo:py-1.5">
+    <div className="calculator-card flex h-full min-h-[220px] min-w-0 flex-col rounded-xl border border-brand-border bg-gray-50 px-3 py-2.5 md:min-h-0 duo:min-h-0 duo:px-2 duo:py-1.5">
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <h3 className="text-sm font-semibold">{title}</h3>
         {onJobsPerDay && (
           <label className="flex items-center gap-2 text-xs text-gray-500 shrink-0">
             Jobs / day
-            <NumberInput className="w-16" value={jobsPerDay} min={0} max={20} onChange={(n) => n != null && onJobsPerDay(n)} />
+            <NumberInput value={jobsPerDay} min={0} max={20} onChange={(n) => n != null && onJobsPerDay(n)} />
           </label>
         )}
       </div>
-      <div className="flex-1 min-h-0 overflow-auto">
-        <table className="w-full h-full text-[13px] tabular-nums">
-          <thead>
-            <tr className="border-b border-brand-border text-xs uppercase tracking-[0.12em] text-gray-500">
-              <th className="text-left py-1.5 pr-2 font-medium" />
-              {columns.map((c) => <th key={c.title} className="text-right py-1.5 px-1.5 font-medium whitespace-nowrap">{c.title}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((col) => (
-              <tr key={col.key} className={cx("border-b border-gray-100", col.key === "profit" && "font-semibold")}>
-                <td className={cx("py-1 pr-2 text-left whitespace-nowrap", col.key === "profit" ? "text-brand-black" : "text-gray-600")}>{col.key === "payroll" && !hired ? "Your pay" : col.key === "ads" ? "Ads, this truck" : col.label}</td>
-                {columns.map((c) => (
-                  <td key={c.title} className={cx("text-right py-1 px-1.5 whitespace-nowrap", col.key === "profit" && (c.slice.profit >= 0 ? "text-green-600" : "text-brand-red"), col.cost && "text-brand-red")}>{cell(col.key, c.slice)}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <BreakdownTable columns={columns} rows={cardRows(detail, columns)} />
+    </div>
+  );
+}
+
+function CompanyCard({ form, preview, detail }: { form: CalculatorInput; preview: Results; detail: boolean }) {
+  const month = preview.months.find((m) => m.active);
+  if (!month) return null;
+  const columns = periodColumns(form, companyMonthSlice(month, form), companySeasonSlice(preview, form));
+  return (
+    <div className="calculator-card flex h-full min-h-0 flex-col rounded-xl border border-brand-border bg-gray-50 px-3 py-2.5">
+      <h3 className="text-sm font-semibold mb-1">All {form.trucks} truck{form.trucks === 1 ? "" : "s"}</h3>
+      <BreakdownTable columns={columns} rows={cardRows(detail, columns)} />
     </div>
   );
 }
@@ -393,11 +474,7 @@ function monthRows(preview: Results): { label: string; profit?: boolean; cells: 
   const rows: { label: string; profit?: boolean; pick: (m: Results["months"][number]) => number; year: number; yearText?: string; count?: boolean }[] = [
     { label: "Jobs", pick: (m) => m.jobs ?? 0, year: preview.meta.totalJobs ?? 0, count: true },
     { label: "Revenue", pick: (m) => m.revenue, year: preview.totals.revenue },
-    { label: "Chemicals", pick: (m) => m.byCategory.chemicals, year: preview.totals.chemicals },
-    { label: "Payroll", pick: (m) => m.byCategory.payroll + m.byCategory.payroll_burden, year: preview.totals.payroll + preview.totals.payrollBurden },
-    { label: "Ads, all trucks", pick: (m) => m.byCategory.marketing, year: preview.totals.advertising },
-    { label: "Fuel & ins.", pick: (m) => m.byCategory.vehicle, year: preview.totals.byCategory.vehicle },
-    { label: "Other", pick: (m) => m.operatingExpenses - m.byCategory.chemicals - m.byCategory.payroll - m.byCategory.payroll_burden - m.byCategory.marketing - m.byCategory.vehicle, year: preview.totals.operatingExpenses - preview.totals.chemicals - preview.totals.payroll - preview.totals.payrollBurden - preview.totals.advertising - preview.totals.byCategory.vehicle },
+    { label: "Expenses", pick: (m) => m.operatingExpenses, year: preview.totals.operatingExpenses },
     { label: "Profit", profit: true, pick: (m) => m.operatingProfit, year: preview.totals.operatingProfit, yearText: fmtMoneyExact(preview.totals.operatingProfit) },
   ];
   return rows.map((row) => ({
@@ -416,6 +493,7 @@ function monthRows(preview: Results): { label: string; profit?: boolean; cells: 
 export default function JobCalculator() {
   const { working, setWorking } = useSavedScenario();
   const form = useMemo(() => readCalculator(working), [working]);
+  const [detail, setDetail] = useState(false);
 
   const commit = (next: CalculatorInput) => {
     setWorking(applyCalculator(working, next));
@@ -437,34 +515,23 @@ export default function JobCalculator() {
   const perJobProfit = jobs > 0 ? Math.round(profit / jobs) : 0;
   const perDayProfit = workDays > 0 ? Math.round(profit / workDays) : 0;
   const perMonthProfit = offSeasonBills > 0 ? Math.round(profit / 12) : preview.kpis.avgMonthlyProfitInSeason;
-  const named = ["bleach", "truck_fuel", "crew_payroll", "owner_compensation", "advertising", "truck_insurance", "rent"];
-  const otherCosts = preview.totals.operatingExpenses - named.reduce((sum, key) => sum + companyLine(preview, key), 0);
-
   const owners = preview.trucks.filter((t) => t.operator === "owner");
-  const splitOwners = owners.length >= 2;
-  const hiredRates = hired ? profitRates(hired, form, form.jobsPerDay) : null;
-  const ownerRateList = owners
-    .map((truck, i) => profitRates(truck, form, splitOwners ? (form.ownerJobsPerDay[i] ?? form.jobsPerDay) : form.jobsPerDay))
-    .filter((rates): rates is ProfitRates => rates != null);
-  const ownerRates = ownerRateList.length
-    ? {
-        perJob: meanRate(ownerRateList.map((rates) => rates.perJob)),
-        perDay: meanRate(ownerRateList.map((rates) => rates.perDay)),
-        perMonth: meanRate(ownerRateList.map((rates) => rates.perMonth)),
-      }
-    : null;
-  const ownerRatesDiffer = ownerRateList.length > 1 && ownerRateList.some((rates) => rates.perMonth !== ownerRateList[0].perMonth);
-  const duoColumns = [
-    hiredRates ? { label: form.hiredTrucks > 1 ? `Each hired · ${form.hiredTrucks}` : "Hired truck", rates: hiredRates } : null,
-    ownerRates ? { label: ownerRatesDiffer ? "You, average" : owners.length > 1 ? `Each you drive · ${owners.length}` : "You drive", rates: ownerRates } : null,
-    { label: form.trucks > 1 ? `All ${form.trucks} trucks` : "All trucks", rates: { perJob: perJobProfit, perDay: perDayProfit, perMonth: perMonthProfit } },
-  ].filter((column): column is { label: string; rates: ProfitRates } => column != null);
+  const hiredTrucks = preview.trucks.filter((t) => t.operator === "hired");
+  const ownJobs = owners.length >= 2 || (owners.length === 1 && form.hiredTrucks > 0);
+  const hiredOwn = hiredTrucks.length >= 2;
+  const hiredJob = (i: number) => form.hiredJobsPerDay[i] ?? form.jobsPerDay;
+  const ownerJob = (i: number) => form.ownerJobsPerDay[i] ?? form.jobsPerDay;
+  const flatSeason = seasonIsFlat(preview);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 duo:gap-1">
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 duo:grid-cols-7 gap-x-2 gap-y-1.5 shrink-0">
+      <div className="calculator-fields grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 duo:grid-cols-7 gap-x-2 gap-y-1.5 shrink-0">
         <Field label="Price per job"><MoneyInput value={form.ticket} onChange={(n) => patch({ ticket: n })} placeholder="0" /></Field>
-        <Field label={splitOwners && form.hiredTrucks > 0 ? "Crew jobs / truck / day" : "Jobs / truck / day"}><NumberInput value={form.jobsPerDay} min={0} max={20} onChange={(n) => n != null && patch({ jobsPerDay: n })} /></Field>
+        <Field label={ownJobs && form.hiredTrucks > 0 ? "Crew jobs / truck / day" : "Jobs / truck / day"}><NumberInput value={form.jobsPerDay} min={0} max={20} onChange={(n) => {
+          if (n == null) return;
+          const hiredJobs = form.hiredJobsPerDay.map((jobs) => (jobs === form.jobsPerDay ? n : jobs));
+          patch({ jobsPerDay: n, ...(hiredOwn ? { hiredJobsPerDay: hiredJobs } : {}) });
+        }} /></Field>
         <Field label="Days / week"><NumberInput value={form.daysPerWeek} min={1} max={7} onChange={(n) => n != null && patch({ daysPerWeek: n })} /></Field>
         <Field label="Months"><NumberInput value={form.months} min={1} max={12} onChange={(n) => n != null && patch({ months: n })} /></Field>
         <Field label="Trucks"><NumberInput value={form.trucks} min={1} max={25} onChange={(n) => n != null && patch({ trucks: n, hiredTrucks: Math.min(form.hiredTrucks, n) })} /></Field>
@@ -479,21 +546,70 @@ export default function JobCalculator() {
         <Field label="Rent / mo, company"><MoneyInput value={form.rentPerMonth} onChange={(n) => patch({ rentPerMonth: n })} placeholder="0" /></Field>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-brand-border bg-gray-50 px-3 py-2">
+      <div className="calculator-profit flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-brand-border bg-gray-50 px-3 py-2">
         <div>
           <div className="text-xs uppercase tracking-[0.14em] text-gray-500">{hasTicket ? (offSeasonBills > 0 ? "Profit this year" : `Profit, ${form.months} mo`) : "Profit"}</div>
           <div className={cx("tabular-nums text-3xl font-semibold leading-none duo:text-2xl", !hasTicket ? "text-gray-500" : profit >= 0 ? "text-green-600" : "text-brand-red")}>{hasTicket ? fmtMoneyExact(profit) : "—"}</div>
         </div>
-        {hasTicket && <DuoSummary columns={duoColumns} />}
-        <div className="text-sm text-gray-500 tabular-nums ml-auto">
-          {fmtMoney(preview.totals.revenue)} in · {fmtMoney(preview.totals.operatingExpenses)} out
-          {form.payrollPerDay != null && form.payrollPerDay > 0 && form.hiredTrucks === 0 ? " · payroll not charged (no hired truck)" : ""}
+        {hasTicket && (
+          <div className="text-sm tabular-nums text-gray-500">
+            All trucks
+            <span className={cx("ml-2 font-semibold", perJobProfit >= 0 ? "text-green-600" : "text-brand-red")}>{fmtMoneyExact(perJobProfit)}</span> / job
+            <span className={cx("ml-2 font-semibold", perDayProfit >= 0 ? "text-green-600" : "text-brand-red")}>{fmtMoneyExact(perDayProfit)}</span> / day
+            <span className={cx("ml-2 font-semibold", perMonthProfit >= 0 ? "text-green-600" : "text-brand-red")}>{fmtMoneyExact(perMonthProfit)}</span> / month
+          </div>
+        )}
+        <div className="ml-auto flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-gray-500">
+            Cards
+            <select
+              value={detail ? "expenses" : "summary"}
+              onChange={(e) => setDetail(e.target.value === "expenses")}
+              className="h-7 rounded-md border border-brand-border bg-white px-1.5 text-xs text-brand-black"
+            >
+              <option value="summary">Summary</option>
+              <option value="expenses">Expenses</option>
+            </select>
+          </label>
+          <div className="text-sm text-gray-500 tabular-nums">
+            {fmtMoney(preview.totals.revenue)} in · {fmtMoney(preview.totals.operatingExpenses)} out
+            {form.payrollPerDay != null && form.payrollPerDay > 0 && form.hiredTrucks === 0 ? " · payroll not charged (no hired truck)" : ""}
+          </div>
         </div>
       </div>
 
-      <div className={cx("flex-1 min-h-0 grid gap-2 duo:gap-1.5", (hired ? 1 : 0) + (owners.length ? 1 : 0) + 1 >= 3 ? "xl:grid-cols-3 duo:grid-cols-3" : "xl:grid-cols-[minmax(0,1.5fr)_minmax(260px,0.8fr)] duo:grid-cols-[minmax(0,1.4fr)_minmax(200px,0.75fr)]")}>
-        {hired && <TruckBreakdown truck={hired} form={form} count={form.hiredTrucks} jobsPerDay={form.jobsPerDay} />}
-        {splitOwners && (
+      <div className={cx("calculator-cards flex-1 min-h-0 grid gap-2 duo:gap-1.5", (hired ? 1 : 0) + (owners.length ? 1 : 0) + 1 >= 3 ? "xl:grid-cols-3 duo:grid-cols-3" : "xl:grid-cols-[minmax(0,1.5fr)_minmax(260px,0.8fr)] duo:grid-cols-[minmax(0,1.4fr)_minmax(200px,0.75fr)]")}>
+        {hiredOwn && (
+          <div className="min-h-0 h-full grid gap-2" style={{ gridTemplateRows: `repeat(${hiredTrucks.length}, minmax(0, 1fr))` }}>
+            {hiredTrucks.map((truck, i) => (
+              <TruckBreakdown
+                key={truck.truckId}
+                truck={truck}
+                form={form}
+                count={1}
+                heading={`Crew · ${truck.name}`}
+                detail={detail}
+                jobsPerDay={hiredJob(i)}
+                onJobsPerDay={(n) => {
+                  const next = hiredTrucks.map((_, j) => hiredJob(j));
+                  next[i] = n;
+                  patch({ hiredJobsPerDay: next });
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {!hiredOwn && hired && (
+          <TruckBreakdown
+            truck={hired}
+            form={form}
+            count={form.hiredTrucks}
+            detail={detail}
+            jobsPerDay={form.jobsPerDay}
+            onJobsPerDay={(n) => patch({ jobsPerDay: n })}
+          />
+        )}
+        {owners.length >= 2 && (
           <div className="min-h-0 h-full grid gap-2" style={{ gridTemplateRows: `repeat(${owners.length}, minmax(0, 1fr))` }}>
             {owners.map((truck, i) => (
               <TruckBreakdown
@@ -502,9 +618,10 @@ export default function JobCalculator() {
                 form={form}
                 count={1}
                 heading={`You · ${truck.name}`}
-                jobsPerDay={form.ownerJobsPerDay[i] ?? form.jobsPerDay}
+                detail={detail}
+                jobsPerDay={ownerJob(i)}
                 onJobsPerDay={(n) => {
-                  const next = owners.map((_, j) => form.ownerJobsPerDay[j] ?? form.jobsPerDay);
+                  const next = owners.map((_, j) => ownerJob(j));
                   next[i] = n;
                   patch({ ownerJobsPerDay: next });
                 }}
@@ -512,37 +629,48 @@ export default function JobCalculator() {
             ))}
           </div>
         )}
-        {!splitOwners && owner && <TruckBreakdown truck={owner} form={form} count={owners.length} jobsPerDay={form.jobsPerDay} />}
-        <div className="flex h-full min-h-0 flex-col rounded-xl border border-brand-border bg-gray-50 px-3 py-2.5">
-          <h3 className="text-sm font-semibold mb-1">All {form.trucks} truck{form.trucks === 1 ? "" : "s"}</h3>
-          <YearStack form={form} results={preview} otherCosts={otherCosts} />
-        </div>
+        {owners.length === 1 && owner && form.hiredTrucks > 0 && (
+          <TruckBreakdown
+            truck={owner}
+            form={form}
+            count={1}
+            detail={detail}
+            jobsPerDay={ownerJob(0)}
+            onJobsPerDay={(n) => patch({ ownerJobsPerDay: [n] })}
+          />
+        )}
+        {owners.length === 1 && owner && form.hiredTrucks === 0 && <TruckBreakdown truck={owner} form={form} count={1} detail={detail} jobsPerDay={form.jobsPerDay} />}
+        <CompanyCard form={form} preview={preview} detail={detail} />
       </div>
 
-      <div className="shrink-0 overflow-x-auto rounded-xl border border-brand-border bg-white px-3 py-2 duo:max-h-[38%] duo:min-h-0 duo:py-1">
-        <table className="w-full text-[13px] tabular-nums">
-          <thead>
-            <tr className="text-[11px] uppercase tracking-wide text-gray-500">
-              <th className="text-left font-medium pr-2" />
-              {preview.months.map((m) => (
-                <th key={m.monthIndex} className={cx("text-right font-medium px-1", !m.active && "opacity-40")}>{m.label}</th>
-              ))}
-              <th className="text-right font-medium pl-2">Year</th>
-            </tr>
-          </thead>
-          <tbody>
-            {monthRows(preview).map((row) => (
-              <tr key={row.label}>
-                <td className={cx("text-left pr-2 py-0.5 whitespace-nowrap", row.profit ? "font-semibold text-brand-black" : "text-gray-600")}>{row.label}</td>
-                {row.cells.map((cell, i) => (
-                  <td key={preview.months[i].monthIndex} className={cx("text-right px-1 py-0.5 whitespace-nowrap", !preview.months[i].active && "opacity-40", row.profit && (cell.raw >= 0 ? "text-green-600" : "text-brand-red"))}>{cell.text}</td>
+      {flatSeason ? (
+        <SeasonLine preview={preview} offSeasonBills={offSeasonBills} />
+      ) : (
+        <div className="shrink-0 overflow-x-auto rounded-xl border border-brand-border bg-white px-3 py-2 duo:max-h-[38%] duo:min-h-0 duo:py-1">
+          <table className="w-full text-[13px] tabular-nums">
+            <thead>
+              <tr className="text-[11px] uppercase tracking-wide text-gray-500">
+                <th className="text-left font-medium pr-2" />
+                {preview.months.map((m) => (
+                  <th key={m.monthIndex} className={cx("text-right font-medium px-1", !m.active && "opacity-40")}>{m.label}</th>
                 ))}
-                <td className={cx("text-right pl-2 py-0.5 whitespace-nowrap font-medium", row.profit && (row.yearRaw >= 0 ? "text-green-600" : "text-brand-red"))}>{row.year}</td>
+                <th className="text-right font-medium pl-2">Year</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {monthRows(preview).map((row) => (
+                <tr key={row.label}>
+                  <td className={cx("text-left pr-2 py-0.5 whitespace-nowrap", row.profit ? "font-semibold text-brand-black" : "text-gray-600")}>{row.label}</td>
+                  {row.cells.map((cell, i) => (
+                    <td key={preview.months[i].monthIndex} className={cx("text-right px-1 py-0.5 whitespace-nowrap", !preview.months[i].active && "opacity-40", row.profit && (cell.raw >= 0 ? "text-green-600" : "text-brand-red"))}>{cell.text}</td>
+                  ))}
+                  <td className={cx("text-right pl-2 py-0.5 whitespace-nowrap font-medium", row.profit && (row.yearRaw >= 0 ? "text-green-600" : "text-brand-red"))}>{row.year}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -556,54 +684,45 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-interface ProfitRates {
-  perJob: number;
-  perDay: number;
-  perMonth: number;
+/** True when every working month has the same jobs, revenue, and profit. */
+function seasonIsFlat(preview: Results): boolean {
+  const active = preview.months.filter((m) => m.active);
+  if (active.length <= 1) return true;
+  const first = active[0];
+  return active.every(
+    (m) => m.operatingProfit === first.operatingProfit && m.revenue === first.revenue && (m.jobs ?? 0) === (first.jobs ?? 0),
+  );
 }
 
-function profitRates(truck: TruckResult, form: CalculatorInput, jobsPerDay: number): ProfitRates | null {
-  const month = monthSlice(truck, form, jobsPerDay);
+function seasonSpan(preview: Results): string {
+  const active = preview.months.filter((m) => m.active);
+  if (active.length === 0) return "No season";
+  const indexes = active.map((m) => m.monthIndex);
+  const contiguous = indexes.every((n, i) => i === 0 || n === indexes[i - 1] + 1);
+  if (active.length === 1) return active[0].label;
+  if (contiguous) return `${active[0].label}–${active[active.length - 1].label}`;
+  return active.map((m) => m.label).join(", ");
+}
+
+/** One line instead of twelve identical month columns. */
+function SeasonLine({ preview, offSeasonBills }: { preview: Results; offSeasonBills: number }) {
+  const active = preview.months.filter((m) => m.active);
+  const month = active[0];
   if (!month) return null;
-  const perJob = scale(month.slice, month.slice.jobs);
-  const perDay = scale(month.slice, month.slice.days);
-  return { perJob: perJob.profit, perDay: perDay.profit, perMonth: month.slice.profit };
-}
-
-function meanRate(values: number[]): number {
-  return Math.round(values.reduce((sum, n) => sum + n, 0) / values.length);
-}
-
-/** Hired truck and the truck you drive, next to the whole company. */
-function DuoSummary({ columns }: { columns: { label: string; rates: ProfitRates }[] }) {
-  const rows: { key: keyof ProfitRates; label: string }[] = [
-    { key: "perJob", label: "Per job" },
-    { key: "perDay", label: "Per day" },
-    { key: "perMonth", label: "Per month" },
-  ];
+  const profit = month.operatingProfit;
   return (
-    <table className="text-sm tabular-nums">
-      <thead>
-        <tr>
-          <th />
-          {columns.map((column) => (
-            <th key={column.label} className="px-2 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-gray-500">{column.label}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.key}>
-            <td className="pr-2 text-[10px] uppercase tracking-[0.12em] text-gray-500">{row.label}</td>
-            {columns.map((column) => {
-              const value = column.rates[row.key];
-              return (
-                <td key={column.label} className={cx("px-2 text-right font-semibold", value >= 0 ? "text-green-600" : "text-brand-red")}>{fmtMoneyExact(value)}</td>
-              );
-            })}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="calculator-season shrink-0 rounded-xl border border-brand-border bg-white px-3 py-2 text-sm tabular-nums text-gray-600">
+      {seasonSpan(preview)}
+      <span className="text-gray-400"> · </span>
+      {fmtCount(month.jobs ?? 0)} jobs and{" "}
+      <span className={cx("font-semibold", profit >= 0 ? "text-green-600" : "text-brand-red")}>{fmtMoney(profit)}</span>
+      {" "}profit each month
+      {offSeasonBills > 0 && (
+        <>
+          <span className="text-gray-400"> · </span>
+          off-season {fmtMoney(offSeasonBills)}
+        </>
+      )}
+    </div>
   );
 }

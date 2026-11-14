@@ -125,7 +125,7 @@ export interface TruckOverrides {
   weeklyPayroll?: Cents | null;
   /**
    * Jobs this truck finishes on a working day. Null follows the scenario
-   * jobs-per-day. Used so two owner-operators can run different schedules.
+   * jobs-per-day. Each owner-operated truck can keep its own schedule.
    */
   jobsPerDay?: number | null;
 }
